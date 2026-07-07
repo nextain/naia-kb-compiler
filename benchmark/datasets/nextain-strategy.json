@@ -1,0 +1,18 @@
+{
+  "name": "nextain-strategy",
+  "description": "넥스테인 전략 문서(md) 코퍼스 벤치. 코퍼스 경로는 러너 인자로 전달(레포에 경로 미포함). goldQA=앵커, heldOut=과적합 차단.",
+  "exclude": [".git", ".obsidian", ".agents", ".users", "node_modules"],
+  "excludeFiles": ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "README.md"],
+  "goldQA": [
+    { "q": "넥스테인 대표 누구야?", "a": "양병석" },
+    { "q": "넥스테인 사업 분야는?", "a": "AI 인프라" },
+    { "q": "넥스테인 슬로건은?", "a": "Defining the Infrastructure for the AGI Era" }
+  ],
+  "heldOut": [
+    { "q": "넥스테인 CTO 이름은?", "a": "김동학", "answerable": true },
+    { "q": "넥스테인 전신 회사명은?", "a": "Caretive", "answerable": true },
+    { "q": "넥스테인 본사 지역은?", "a": "화성시", "answerable": true },
+    { "q": "넥스테인 사내 식당 메뉴는?", "a": "", "answerable": false },
+    { "q": "넥스테인 야구단 이름은?", "a": "", "answerable": false }
+  ]
+}

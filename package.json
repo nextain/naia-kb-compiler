@@ -1,0 +1,34 @@
+{
+  "name": "@naia/kb-compiler",
+  "version": "0.0.1",
+  "private": true,
+  "description": "지식 컴파일러 엔진 — 자료 투입 → 자동 구조화 → 정답앵커 자가검증 → 거버넌스 붙은 서빙 KB. 넥스테인 자산. 전 구간 port/adapter.",
+  "license": "UNLICENSED",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": { "types": "./dist/index.d.ts", "default": "./dist/index.js" }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "trace": "node scripts/check-traceability.mjs --enforce"
+  },
+  "dependencies": {
+    "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "@huggingface/transformers": "^3.0.0",
+    "mammoth": "^1.8.0",
+    "pdf-parse": "^1.1.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.4.5",
+    "vitest": "^2.1.8"
+  }
+}

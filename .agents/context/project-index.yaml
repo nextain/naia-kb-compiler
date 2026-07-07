@@ -1,0 +1,31 @@
+project: naia-kb-compiler
+description: 지식 컴파일러 엔진 (넥스테인 자산, Apache 2.0). 자료 투입 → 자동 구조화 → 정답앵커 자가검증 → 거버넌스 붙은 서빙 KB.
+owner: Nextain
+visibility: public
+
+entry_points:
+  ai: AGENTS.md   # = CLAUDE.md = GEMINI.md
+  human: README.md
+  ownership: OWNERSHIP.md
+
+mandatory_reads:
+  - .agents/context/agents-rules.json
+  - .agents/context/project-index.yaml
+  - docs/progress/01.requirements/INDEX.md
+
+vmodel:
+  01_requirements: docs/progress/01.requirements/INDEX.md
+  02_user_scenarios: docs/progress/02.user-scenarios/INDEX.md
+  03_uc_tests: docs/progress/03.uc-tests/INDEX.md
+  04_features: docs/progress/04.features/INDEX.md
+  05_features_tests: docs/progress/05.features-tests/INDEX.md
+
+pipeline: [ingest, extract, verify(eval-anchored), govern, project(retrieval), serve]
+
+ports: [IngestPort, ExtractPort, EmbedPort, RetrievalPort, StorePort, GeneratePort]
+
+consumers:
+  - name: 첫 소비자
+    relation: 의존성으로 소비(비종속). 소유·레포 분리. 상세는 별도 계약.
+
+status: scaffold

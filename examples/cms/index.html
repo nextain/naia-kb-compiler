@@ -1,0 +1,182 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>naia-kb-compiler · 대시보드</title>
+<style>
+  :root{--bg:#0f1115;--panel:#1a1d24;--bd:#2a2f3a;--tx:#e6e8eb;--mut:#9aa3b2;--acc:#4c8bf5;--ok:#3fb950;--warn:#d29922;--bad:#e5484d}
+  *{box-sizing:border-box} body{margin:0;font-family:system-ui,"Noto Sans KR",sans-serif;background:var(--bg);color:var(--tx)}
+  header{padding:12px 20px;border-bottom:1px solid var(--bd);display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+  header b{font-size:15px} .badge{font-size:12px;padding:3px 9px;border-radius:12px;background:#143a1f;color:var(--ok)}
+  .badge.off{background:#3a2414;color:var(--warn)}
+  a{color:var(--acc);text-decoration:none}
+  .tabs{display:flex;gap:6px;padding:10px 20px 0}
+  .tabs button{padding:8px 16px;background:transparent;border:1px solid var(--bd);border-bottom:none;border-radius:8px 8px 0 0;color:var(--mut);cursor:pointer;font-size:14px}
+  .tabs button.active{background:var(--panel);color:var(--tx);border-color:var(--acc)}
+  .pane{display:none;padding:20px;max-width:980px} .pane.active{display:block}
+  .card{background:var(--panel);border:1px solid var(--bd);border-radius:10px;padding:16px;margin-bottom:14px}
+  h3{margin:0 0 6px;font-size:15px} .help{color:var(--mut);font-size:13px;margin:2px 0 12px;line-height:1.5}
+  input,textarea,select{width:100%;background:#0c0e12;border:1px solid var(--bd);border-radius:8px;color:var(--tx);padding:11px 13px;font-size:14px;font-family:inherit}
+  textarea{resize:vertical} label{display:block;font-size:12px;color:var(--mut);margin:10px 0 4px}
+  button.go{padding:11px 18px;background:var(--acc);color:#fff;border:0;border-radius:8px;font-size:14px;cursor:pointer}
+  button.sec{background:transparent;border:1px solid var(--bd);color:var(--tx)}
+  .row{display:flex;gap:8px;align-items:center}
+  .ans{background:#0c1b10;border:1px solid #1f5130;border-radius:8px;padding:14px;font-size:15px;line-height:1.6;white-space:pre-wrap}
+  .ans.abstain{background:#1b1710;border-color:#5a4420;color:var(--warn)}
+  .src{font-size:12px;color:var(--mut);margin-top:8px}
+  .hit{border-bottom:1px solid var(--bd);padding:10px 0} .hit b{font-size:13px} .hit .sn{color:var(--mut);font-size:13px;margin-top:3px;line-height:1.5}
+  .ex{display:inline-block;background:#0c0e12;border:1px solid var(--bd);border-radius:14px;padding:4px 10px;margin:3px 4px 0 0;font-size:12px;cursor:pointer}
+  .mut{color:var(--mut)} code{background:#0c0e12;padding:1px 6px;border-radius:4px;font-size:12px}
+  table{width:100%;border-collapse:collapse;font-size:12px} th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--bd)} th{color:var(--mut);font-weight:500}
+  .tag{font-size:11px;padding:1px 6px;border-radius:10px} .accepted{background:#143a1f;color:var(--ok)} .gap{background:#3a2414;color:var(--warn)} .draft{background:#22262e;color:var(--mut)}
+  .pill{display:inline-block;background:#0c0e12;border:1px solid var(--bd);border-radius:12px;padding:2px 8px;margin:2px;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <b>naia-kb-compiler 대시보드</b>
+  <span id="cstat" class="badge off">코퍼스 확인 중…</span>
+  <a href="/graph.html" target="_blank" style="margin-left:auto">↗ 지식그래프 뷰어</a>
+</header>
+
+<div class="tabs">
+  <button id="t1" class="active" onclick="tab(1)">① 넥스테인 자료 검색·질의</button>
+  <button id="t2" onclick="tab(2)">② 새 자료 컴파일(고급)</button>
+</div>
+
+<!-- 탭1: 검색/질의 -->
+<div id="p1" class="pane active">
+  <div class="card" style="border-color:#2a3a55">
+    <h3>📖 사용법 (3단계)</h3>
+    <div class="help" style="margin-bottom:0">
+      <b>1) 질문</b> — 아래 "질문하기"에 자연어로 물으면 넥스테인 문서에서 근거 문장을 찾아 답합니다(없으면 "모름").<br>
+      <b>2) 검색</b> — 키워드로 관련 문서·문단을 점수순으로 찾습니다.<br>
+      <b>3) 자료 관리</b> — 아래 "인덱싱된 자료"에서 무엇이 로딩됐는지 보고, 문서를 추가/수정한 뒤 <b>🔄 재인덱싱</b>으로 갱신합니다.<br>
+      <span class="mut">※ 새 문서를 그래프로 만들어 실험하려면 상단 <b>② 새 자료 컴파일</b> 탭. · 지식그래프 그림은 우상단 <b>↗ 뷰어</b>.</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between">
+      <h3 style="margin:0">📚 인덱싱된 넥스테인 자료 <span id="fcount" class="mut"></span></h3>
+      <div class="row"><button class="sec" onclick="toggleList()">목록 보기</button><button class="go" onclick="reindex()">🔄 재인덱싱(업데이트)</button></div>
+    </div>
+    <div class="help">문서를 추가·수정하려면 코퍼스 폴더(<code id="cdir">…</code>)의 <code>.md</code> 파일을 편집한 뒤 <b>재인덱싱</b>을 누르세요. <span class="mut">(폴더 = nextain-team-strategy. PDF/HWP는 .md/.txt로 변환 후 넣기)</span></div>
+    <div id="flist" style="display:none;max-height:240px;overflow:auto;margin-top:8px;font-size:12px"></div>
+    <div id="rmsg" class="mut" style="font-size:12px"></div>
+  </div>
+
+  <div class="card">
+    <h3>질문하기 (Q&A)</h3>
+    <div class="help">인덱싱된 <b>넥스테인 전략문서</b>에서 근거를 찾아 답합니다. 근거 없으면 솔직히 "모름"으로 기권합니다. 추출형(원문 문장 인용) — 지어내지 않습니다.</div>
+    <div class="row"><input id="q" placeholder="예: 넥스테인 대표 누구야?" onkeydown="if(event.key==='Enter')ask()" /><button class="go" onclick="ask()">질문</button></div>
+    <div id="examples" style="margin-top:8px"></div>
+    <div id="answer" style="margin-top:12px"></div>
+  </div>
+  <div class="card">
+    <h3>검색</h3>
+    <div class="help">질의와 관련된 <b>문서·문단</b> 목록을 점수순으로 보여줍니다.</div>
+    <div class="row"><input id="sq" placeholder="예: 사업 모델, 특허, 로드맵…" onkeydown="if(event.key==='Enter')search()" /><button class="go" onclick="search()">검색</button></div>
+    <div id="hits" style="margin-top:10px"></div>
+  </div>
+</div>
+
+<!-- 탭2: 컴파일 -->
+<div id="p2" class="pane">
+  <div class="card">
+    <h3>새 자료를 지식그래프로 컴파일</h3>
+    <div class="help">
+      <b>소스에 넣을 수 있는 것</b>: 문서 <b>본문 텍스트</b>(그냥 복붙) · <b>마크다운</b>(제목/목록/굵게 → 그래프 구조로 인식). 파일 업로드는 텍스트로 변환해 붙여넣으세요.<br>
+      <b>정답 앵커(선택)</b>: <code>질문 | 정답</code> 한 줄씩. 생성된 지식이 이 답을 재현하면 카드가 <span class="tag accepted">accepted</span>, 못하면 <span class="tag gap">gap</span>(사람 확인).<br>
+      <b>결과</b>: 우측에 카드·지식그래프·개인정보/대외비 경고가 뜹니다.
+    </div>
+    <div id="sources"></div>
+    <button class="sec" onclick="addSrc()">+ 소스 추가</button>
+    <label>정답 앵커 (선택) — <code>질문 | 정답</code></label>
+    <textarea id="gold" rows="2" placeholder="여권 발급 수수료? | 53000원"></textarea>
+    <div class="row" style="margin-top:10px">
+      <div style="flex:1"><label>추출기</label><select id="extractor"><option value="markdown">markdown(문서·그래프)</option><option value="stub">stub(키:값)</option></select></div>
+      <div style="flex:1"><label>안전(개인정보/대외비)</label><select id="safety"><option value="warn">경고</option><option value="redact">마스킹</option><option value="block">차단</option></select></div>
+    </div>
+    <div class="row" style="margin-top:12px"><button class="go" onclick="compile()">컴파일</button><button class="sec" onclick="scan()">안전 스캔만</button><span id="cmsg" class="mut" style="font-size:12px"></span></div>
+  </div>
+  <div id="out"></div>
+</div>
+
+<script src="/graph.js"></script>
+<script>
+const esc=s=>String(s??'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+function tab(n){for(const i of [1,2]){document.getElementById('t'+i).classList.toggle('active',i===n);document.getElementById('p'+i).classList.toggle('active',i===n)}}
+
+// 코퍼스 상태 + 예시 질문
+async function loadStatus(){
+  try{const r=await fetch('/api/corpus');const j=await r.json();const b=document.getElementById('cstat');
+    if(j.ready){b.className='badge';b.textContent=`넥스테인 자료 ${j.files}개·카드 ${j.cards} 인덱싱됨 (⚠️PII ${j.safety.pii}/대외비 ${j.safety.confidential})`;
+      document.getElementById('fcount').textContent=`(${j.files}개)`;
+      const cd=document.getElementById('cdir');if(cd)cd.textContent=j.dir||'';
+      document.getElementById('examples').innerHTML='예시: '+['넥스테인 대표 누구야?','사업 분야는?','전신 회사명은?','로드맵 알려줘','특허 출원 현황은?'].map(q=>`<span class="ex" onclick="document.getElementById('q').value=this.textContent;ask()">${q}</span>`).join('');
+    } else {b.className='badge off';b.textContent='코퍼스 미로딩 — 검색/질의 비활성 (서버를 CORPUS_DIR로 재시작)';tab(2);}
+  }catch{}
+}
+loadStatus();
+
+let listShown=false;
+async function toggleList(){
+  const el=document.getElementById('flist');
+  if(listShown){el.style.display='none';listShown=false;return;}
+  el.style.display='block';listShown=true;el.innerHTML='<span class="mut">불러오는 중…</span>';
+  const r=await fetch('/api/corpus/list');const j=await r.json();
+  el.innerHTML=(j.files||[]).map(f=>`<div style="padding:2px 0;border-bottom:1px solid var(--bd)">📄 ${esc(f)}</div>`).join('')||'<span class="mut">없음</span>';
+}
+async function reindex(){
+  const m=document.getElementById('rmsg');m.textContent='재인덱싱 중… (문서 수에 따라 수 초)';
+  const r=await fetch('/api/corpus/reindex',{method:'POST'});const j=await r.json();
+  if(!r.ok){m.textContent='실패: '+(j.error||r.status);return;}
+  m.textContent=`완료: 파일 ${j.files}·카드 ${j.cards}`;loadStatus();if(listShown){listShown=false;toggleList();}
+}
+
+async function ask(){
+  const q=document.getElementById('q').value.trim();if(!q)return;
+  const a=document.getElementById('answer');a.innerHTML='<span class="mut">찾는 중…</span>';
+  const r=await fetch('/api/ask',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q})});
+  const j=await r.json();if(!r.ok){a.innerHTML='<span class="mut">'+(j.error||'오류')+'</span>';return;}
+  a.innerHTML=`<div class="ans ${j.abstained?'abstain':''}">${esc(j.answer)}</div>`+(j.sources?.length?`<div class="src">출처: ${j.sources.map(s=>esc(s.title)).join(' · ')}</div>`:'');
+}
+async function search(){
+  const q=document.getElementById('sq').value.trim();if(!q)return;
+  const h=document.getElementById('hits');h.innerHTML='<span class="mut">검색 중…</span>';
+  const r=await fetch('/api/search',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({q})});
+  const j=await r.json();if(!r.ok){h.innerHTML='<span class="mut">'+(j.error||'오류')+'</span>';return;}
+  h.innerHTML=j.length?j.map(x=>`<div class="hit"><b>${esc(x.title)}</b> <span class="mut">(${x.score})</span><div class="sn">${esc(x.snippet)}</div></div>`).join(''):'<span class="mut">결과 없음</span>';
+}
+
+// 탭2 컴파일
+let n=0;const sd=document.getElementById('sources');
+function addSrc(){sd.insertAdjacentHTML('beforeend',`<div style="border:1px solid var(--bd);border-radius:8px;padding:8px;margin-bottom:8px"><input placeholder="제목(선택)" data-t="${n}"/><textarea rows="4" placeholder="여기에 문서 본문/마크다운 붙여넣기" data-b="${n}" style="margin-top:6px"></textarea></div>`);n++}
+addSrc();
+function gatherSrc(){const o=[];document.querySelectorAll('[data-b]').forEach(ta=>{const i=ta.getAttribute('data-b');const text=ta.value.trim();if(!text)return;const title=(document.querySelector(`[data-t="${i}"]`)?.value||'').trim();o.push({kind:'text',title:title||undefined,text})});return o}
+function gatherGold(){return document.getElementById('gold').value.split('\n').map(l=>l.trim()).filter(Boolean).map(l=>{const[q,a]=l.split('|').map(s=>(s||'').trim());return q&&a?{q,a}:null}).filter(Boolean)}
+async function scan(){const sources=gatherSrc();const m=document.getElementById('cmsg');if(!sources.length){m.textContent='소스를 입력하세요';return}m.textContent='스캔 중…';const r=await fetch('/api/safety',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({sources})});const rep=await r.json();m.textContent='';document.getElementById('out').innerHTML=`<div class="card"><h3>⚠️ 안전 스캔</h3><div>개인정보 ${rep.piiCount} · 대외비 ${rep.confidentialCount}</div><div style="margin-top:8px">${(rep.findings||[]).map(f=>`<span class="pill">${esc(f.kind)}×${f.count}</span>`).join('')||'<span class="mut">발견 없음</span>'}</div></div>`}
+async function compile(){
+  const sources=gatherSrc();const m=document.getElementById('cmsg');if(!sources.length){m.textContent='소스를 입력하세요';return}m.textContent='컴파일 중…';
+  const body={sources,goldQA:gatherGold(),safety:document.getElementById('safety').value,extractor:document.getElementById('extractor').value};
+  const r=await fetch('/api/compile',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)});const d=await r.json();m.textContent='';
+  if(!r.ok){m.textContent='오류: '+(d.error||r.status);return}
+  const rep=d.report||{},kb=d.kb||{cards:[],entities:[],relations:[]},sf=d.safety||{};
+  const et={};kb.entities.forEach(e=>et[e.type]=(et[e.type]||0)+1);
+  const gaps=(d.verify&&d.verify.gaps)||[];
+  document.getElementById('out').innerHTML=`
+    <div class="card"><h3>리포트</h3>카드 ${rep.cardCount} · accepted ${rep.acceptedCount} · gap ${rep.gapCount} · draft ${rep.draftCount} · score ${rep.score??'—'} <span class="mut">| ⚠️ PII ${sf.piiCount||0}·대외비 ${sf.confidentialCount||0}</span></div>
+    <div class="card"><h3>지식 그래프</h3><div class="mut">엔티티 ${kb.entities.length} (${esc(JSON.stringify(et))}) · 관계 ${kb.relations.length}</div>
+      <canvas id="gc" style="width:100%;height:360px;margin-top:10px;border:1px solid var(--bd);border-radius:8px;cursor:grab"></canvas></div>
+    ${gaps.length?`<div class="card"><h3>갭(사람 확인) ${gaps.length}</h3>${gaps.slice(0,20).map(g=>`<div style="font-size:12px;margin:2px 0"><span class="tag gap">${esc(g.kind)}</span> ${esc(g.detail)}</div>`).join('')}</div>`:''}
+    <div class="card"><h3>카드 ${kb.cards.length}</h3><table><thead><tr><th>제목</th><th>상태</th></tr></thead><tbody>${kb.cards.slice(0,50).map(c=>`<tr><td>${esc(c.title)}</td><td><span class="tag ${c.status}">${c.status}</span></td></tr>`).join('')}</tbody></table></div>`;
+  const deg={};kb.relations.forEach(x=>{deg[x.to]=(deg[x.to]||0)+1;deg[x.from]=(deg[x.from]||0)+1});
+  const gn=kb.entities.map(e=>({id:e.id,label:e.name,type:e.type,deg:deg[e.id]||0})).sort((a,b)=>b.deg-a.deg).slice(0,150);
+  const keep=new Set(gn.map(x=>x.id));const ge=kb.relations.filter(x=>keep.has(x.from)&&keep.has(x.to)).map(x=>({from:x.from,to:x.to,type:x.type}));
+  const cv=document.getElementById('gc');if(cv&&gn.length&&window.renderGraph)window.renderGraph(cv,{nodes:gn,edges:ge},{});
+}
+</script>
+</body>
+</html>

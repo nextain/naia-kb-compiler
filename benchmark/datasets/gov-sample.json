@@ -1,0 +1,35 @@
+{
+  "name": "gov-sample",
+  "description": "○○구청류 민원 샘플. goldQA=컴파일 앵커, heldOut=과적합 차단용 미공개 시험, gate=매칭 회귀.",
+  "sources": [
+    { "kind": "text", "title": "여권 발급", "uri": "https://gov.example.kr/passport",
+      "text": "여권 발급\n대상: 대한민국 국민\n필요서류: 신분증, 여권용 사진 1매\n담당: 민원여권과\n수수료: 53000원\n운영시간: 평일 09:00~18:00" },
+    { "kind": "text", "title": "전입신고", "uri": "https://gov.example.kr/movein",
+      "text": "전입신고\n대상: 새로 이사 온 세대주\n필요서류: 신분증\n담당: 주민센터\n수수료: 무료" },
+    { "kind": "text", "title": "주민등록등본 발급", "uri": "https://gov.example.kr/copy",
+      "text": "주민등록등본 발급\n필요서류: 신분증\n담당: 주민센터\n수수료: 400원" },
+    { "kind": "text", "title": "인감증명 발급", "uri": "https://gov.example.kr/seal",
+      "text": "인감증명 발급\n필요서류: 신분증, 인감도장\n담당: 민원실\n수수료: 600원" },
+    { "kind": "text", "title": "청사 주차 안내", "uri": "https://gov.example.kr/parking",
+      "text": "청사 주차 안내\n운영시간: 평일 08:00~20:00\n수수료: 시간당 2000원" }
+  ],
+  "goldQA": [
+    { "q": "여권 발급 수수료 얼마야?", "a": "53000원" },
+    { "q": "전입신고 담당 부서?", "a": "주민센터" },
+    { "q": "주민등록등본 발급 수수료?", "a": "400원" }
+  ],
+  "heldOut": [
+    { "q": "여권 만들 때 뭐 필요해?", "a": "신분증", "answerable": true },
+    { "q": "인감증명 발급 담당?", "a": "민원실", "answerable": true },
+    { "q": "청사 주차 요금?", "a": "2000원", "answerable": true },
+    { "q": "혼인신고는 어떻게 해?", "a": "", "answerable": false },
+    { "q": "건축 허가 어디서 받아?", "a": "", "answerable": false }
+  ],
+  "gate": [
+    { "needle": "300원", "haystack": "수수료 1300원", "expect": "nomatch", "why": "숫자 부분포함 오탐(F1)" },
+    { "needle": "100", "haystack": "전화 02-1004", "expect": "nomatch", "why": "숫자 부분포함 오탐(F1)" },
+    { "needle": "53000원", "haystack": "수수료: 53000원", "expect": "match", "why": "정확 숫자" },
+    { "needle": "신분증이 필요합니다", "haystack": "전입신고 신분증 주민센터", "expect": "match", "why": "한국어 조사(F2)" },
+    { "needle": "○○구청은", "haystack": "○○구청 민원실 안내", "expect": "match", "why": "한국어 조사(F2)" }
+  ]
+}

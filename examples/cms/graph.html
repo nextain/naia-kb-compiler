@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>지식 그래프 뷰어 · naia-kb-compiler</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b0d11;color:#e6e8eb;font-family:system-ui,"Noto Sans KR",sans-serif;overflow:hidden}
+  #bar{position:fixed;top:0;left:0;right:0;height:48px;display:flex;align-items:center;gap:10px;padding:0 14px;background:rgba(18,21,27,.85);border-bottom:1px solid #2a2f3a;z-index:10;backdrop-filter:blur(6px)}
+  #bar b{font-size:14px} #bar .mut{color:#9aa3b2;font-size:12px}
+  button,label.btn{padding:6px 12px;background:#1a1d24;border:1px solid #2a2f3a;border-radius:8px;color:#e6e8eb;font-size:13px;cursor:pointer}
+  input[type=file]{display:none}
+  /* 2D/3D 토글 */
+  #mode{display:inline-flex;border:1px solid #2a2f3a;border-radius:8px;overflow:hidden}
+  #mode button{border:0;border-radius:0;background:#14171d}
+  #mode button.on{background:#2a6df4;color:#fff}
+  #auto{display:none}
+  #legend{position:fixed;right:14px;top:60px;width:230px;max-height:calc(100vh - 90px);overflow:auto;background:rgba(18,21,27,.9);border:1px solid #2a2f3a;border-radius:12px;padding:12px 13px;font-size:12px;z-index:10}
+  .lg-sec{margin-bottom:11px;padding-bottom:9px;border-bottom:1px solid #232833}
+  .lg-sec:last-child{border-bottom:0;margin-bottom:0}
+  .lg-h{font-weight:600;font-size:11px;letter-spacing:.02em;color:#cfd5df;margin-bottom:6px}
+  .row{margin:4px 0;line-height:1.45} .mut{color:#9aa3b2} .sm{font-size:11px}
+  .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:middle}
+  .dot.big{width:14px;height:14px;background:#6b7280}
+  .line{display:inline-block;width:16px;height:3px;border-radius:2px;margin-right:6px;vertical-align:middle}
+  .shape{display:inline-block;width:15px;text-align:center;color:#9aa3b2;margin:0 2px}
+  #info{position:fixed;left:14px;bottom:14px;background:rgba(18,21,27,.92);border:1px solid #2a2f3a;border-radius:10px;padding:9px 12px;font-size:12px;z-index:10;min-width:140px;display:none}
+  #info b{font-size:13px}
+  #stat{position:fixed;left:14px;top:56px;color:#9aa3b2;font-size:12px;z-index:10}
+  canvas{display:block;width:100vw;height:100vh}
+</style>
+</head>
+<body>
+<div id="bar">
+  <b>지식 그래프 뷰어</b>
+  <label class="btn">JSON 열기<input id="file" type="file" accept=".json" /></label>
+  <button onclick="loadServer()">서버 그래프 불러오기</button>
+  <span id="mode">
+    <button id="m2d" class="on" onclick="setMode('2d')">2D</button>
+    <button id="m3d" onclick="setMode('3d')">3D</button>
+  </span>
+  <button id="auto" onclick="window._ctrl&&window._ctrl.toggleAuto&&window._ctrl.toggleAuto()">자동회전</button>
+  <span class="mut" id="hint">드래그=이동 · 휠=확대</span>
+</div>
+<canvas id="cv"></canvas>
+<div id="legend"></div>
+<div id="info"></div>
+<div id="stat" class="mut"></div>
+
+<script src="/graph-common.js"></script>
+<script src="/graph.js"></script>
+<script src="/graph3d.js"></script>
+<script>
+function toGraph(json, cap=180){
+  let nodes=[], edges=[];
+  if(json.nodes && json.edges){ nodes=json.nodes; edges=json.edges; }
+  else {
+    const kb = json.kb || json;
+    const ents = kb.entities||[], rels = kb.relations||[];
+    const deg={}; rels.forEach(r=>{deg[r.to]=(deg[r.to]||0)+1; deg[r.from]=(deg[r.from]||0)+1;});
+    const top = ents.map(e=>({id:e.id,label:e.name,type:e.type,deg:deg[e.id]||0})).sort((a,b)=>b.deg-a.deg).slice(0,cap);
+    const keep=new Set(top.map(n=>n.id));
+    nodes=top; edges=rels.filter(r=>keep.has(r.from)&&keep.has(r.to)).map(r=>({from:r.from,to:r.to,type:r.type,weight:r.weight}));
+  }
+  return {nodes,edges};
+}
+const infoEl=document.getElementById('info');
+function onHover(n){
+  if(!n){ infoEl.style.display='none'; return; }
+  infoEl.style.display='block';
+  const tname={Topic:'섹션',Concept:'개념',Reference:'링크'}[n.type]||n.type;
+  infoEl.innerHTML=`<b>${String(n.label).replace(/[<>&]/g,'')}</b><div class="mut">${tname} · 군집 ${n.comm+1} · 연결 ${n.deg}</div>`;
+}
+let CUR=null, MODE='2d';
+function freshCanvas(){
+  const old=document.getElementById('cv'); const c=old.cloneNode(false); c.id='cv'; old.replaceWith(c); return c;
+}
+function render(){
+  if(!CUR) return;
+  if(window._ctrl && window._ctrl.stop) window._ctrl.stop(); // 옛 루프 정지
+  const c=freshCanvas();                                     // 옛 리스너 제거
+  window._ctrl = MODE==='3d'
+    ? window.renderGraph3D(c, CUR, {onHover})
+    : window.renderGraph(c, CUR, {onHover});
+  const info=window._ctrl.info;
+  document.getElementById('legend').innerHTML=window.GRAPH_COMMON.buildLegendHTML(info);
+  document.getElementById('stat').textContent=`노드 ${info.nodeCount} · 엣지 ${info.edgeCount} · 군집 ${info.communityCount}`;
+  document.getElementById('auto').style.display = MODE==='3d' ? 'inline-block' : 'none';
+  document.getElementById('hint').textContent = MODE==='3d' ? '드래그=궤도 회전 · 휠=확대 · 더블클릭=자동회전' : '드래그=이동 · 휠=확대 · 노드드래그=고정';
+}
+function setMode(m){
+  if(m===MODE) return; MODE=m;
+  document.getElementById('m2d').classList.toggle('on', m==='2d');
+  document.getElementById('m3d').classList.toggle('on', m==='3d');
+  render();
+}
+function show(json){
+  CUR=toGraph(json);
+  if(!CUR.nodes.length){ document.getElementById('stat').textContent='노드 없음'; return; }
+  render();
+}
+document.getElementById('file').addEventListener('change',e=>{
+  const f=e.target.files[0]; if(!f)return; const r=new FileReader();
+  r.onload=()=>{ try{ show(JSON.parse(r.result)); }catch(err){ alert('JSON 파싱 실패: '+err.message); } }; r.readAsText(f);
+});
+async function loadServer(){
+  const name=prompt('결과 이름 (예: nextain-strategy)','nextain-strategy'); if(!name)return;
+  try{ const r=await fetch('/viz/'+encodeURIComponent(name)); if(!r.ok){alert('없음 — 먼저 run-corpus 실행');return;} show(await r.json()); }
+  catch(e){ alert('로드 실패: '+e.message); }
+}
+const q=new URLSearchParams(location.search).get('name');
+if(q){ fetch('/viz/'+encodeURIComponent(q)).then(r=>r.ok?r.json():null).then(j=>j&&show(j)); }
+</script>
+</body>
+</html>

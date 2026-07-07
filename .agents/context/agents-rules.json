@@ -1,0 +1,78 @@
+{
+  "$schema": "https://nextain.com/schemas/agents-rules/v2",
+  "version": "0.1.0",
+  "project": "naia-kb-compiler",
+  "description": "지식 컴파일러 엔진 규칙 SoT. 넥스테인 자산. 도메인·provider 비종속, 전 구간 port/adapter, 데이터 가반성으로 lock-in 금지.",
+  "ownership": {
+    "owner": "Nextain",
+    "partner_grant": "특정 기업·파트너 권리·조건은 별도 서면 계약으로 정함",
+    "non_dependency": "소비자·넥스테인 모두 이 엔진/백엔드/provider 에 종속 금지 — 설계로 보장(port/adapter + 가반 정본 + 재생성 인덱스)",
+    "sot": "OWNERSHIP.md + 별도 서면 계약"
+  },
+  "design_invariants": [
+    {
+      "id": "D01",
+      "rule": "provider_domain_agnostic",
+      "description": "특정 고객/LLM·백엔드 하드코딩 금지. 모든 외부 의존은 포트 뒤 어댑터.",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "D02",
+      "rule": "source_of_truth_portable",
+      "description": "지식 정본(엔티티·관계·서비스카드·운영자 정답셋)은 표준·문서화 포맷(JSON/관계형)으로 자체 DB에 저장 + 무손실 export 제공. 매니지드 인덱스(벡터·그래프)는 재생성 가능 캐시일 뿐 정본 아님.",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "D03",
+      "rule": "graph_data_always_backend_adapter",
+      "description": "그래프 데이터(엔티티·관계)는 항상 생성. 검색 백엔드(벡터 RAG ↔ 그래프 LightRAG/Spanner)는 RetrievalPort 뒤 어댑터로 교체.",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "D04",
+      "rule": "eval_anchored_curation",
+      "description": "자동 추출은 운영자 정답셋(루프 밖 합격 기준)으로 게이트. 통과분만 자동 채택, 나머지는 갭으로 사람에게 표면화.",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "D05",
+      "rule": "safety_first_public_surface",
+      "description": "근거 없으면 지어내지 말고 기권+안내. 범위 게이트(법률/자격판단 거부). 만료·승인·인용 거버넌스.",
+      "status": "ACTIVE"
+    },
+    {
+      "id": "D06",
+      "rule": "no_lockin_design",
+      "description": "독점 포맷·비공개 잠금·탈출 방해 장치 금지. 동등 대체 구현이 가능한 문서화 API.",
+      "status": "ACTIVE"
+    }
+  ],
+  "ports": [
+    { "name": "IngestPort", "responsibility": "URL 크롤·문서 파싱", "adapters": ["http-crawler", "pdf/hwp/docx parser"] },
+    { "name": "ExtractPort", "responsibility": "자료 → 엔티티·관계·카드 초안", "adapters": ["gemini", "claude", "local-llm"] },
+    { "name": "EmbedPort", "responsibility": "임베딩", "adapters": ["vertex", "bge-m3", "kure"] },
+    { "name": "RetrievalPort", "responsibility": "검색(투영)", "adapters": ["pgvector", "vertex-search", "lightrag", "spanner-graph"] },
+    { "name": "StorePort", "responsibility": "정본 저장(가반)", "adapters": ["postgres-json"] },
+    { "name": "GeneratePort", "responsibility": "grounded 응답", "adapters": ["gemini", "local-llm (gateway)"] }
+  ],
+  "charter_immutability": {
+    "charter_files": ["AGENTS.md", "CLAUDE.md", "GEMINI.md", "OWNERSHIP.md", ".agents/context/agents-rules.json", ".agents/context/project-index.yaml"],
+    "violation_action": "BLOCK — 사용자 승인 없이 헌장 수정 금지",
+    "status": "ACTIVE"
+  },
+  "F12_allowed_root_dirs": [".agents", ".claude", ".github", ".users", "benchmark", "docs", "dist", "examples", "node_modules", "scripts", "src"],
+  "required_process_gate": {
+    "steps": [
+      { "id": "P01", "name": "user_scenarios", "deliverable": "docs/progress/02.user-scenarios/INDEX.md" },
+      { "id": "P02", "name": "test_scenarios", "deliverable": "docs/progress/03.uc-tests/INDEX.md" },
+      { "id": "P03", "name": "requirements", "deliverable": "docs/progress/01.requirements/INDEX.md" },
+      { "id": "P04", "name": "integration_test", "deliverable": "테스트 파일/검증 결과" },
+      { "id": "P05", "name": "complete", "deliverable": "requirements 상태 Done + 게이트 done" }
+    ]
+  },
+  "mandatory_reads": [
+    ".agents/context/agents-rules.json",
+    ".agents/context/project-index.yaml",
+    "docs/progress/01.requirements/INDEX.md"
+  ]
+}
