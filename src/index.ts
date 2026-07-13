@@ -19,6 +19,7 @@ export { handleCompile, handleSearch, handleAsk, type HandlerResponse } from "./
 
 // 어댑터
 export { IngestAdapter, type Fetcher } from "./adapters/ingest/text.js";
+export { extractFile, SUPPORTED_FILE_FORMATS } from "./adapters/ingest/file.js"; // 파일(바이너리)→텍스트 유틸(소비자 공개, SPEC-002)
 export { StubExtractAdapter } from "./adapters/extract/stub.js";
 export { MarkdownExtractAdapter } from "./adapters/extract/markdown.js";
 export { GeminiExtractAdapter, type GeminiExtractOptions } from "./adapters/extract/gemini.js";
