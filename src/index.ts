@@ -8,7 +8,7 @@ export type * from "./domain/ports.js";
 export { compile } from "./core/compile.js";
 export { verify } from "./core/verify.js";
 export { KnowledgeService, bestSnippet, isServeReady, serveReadyKb, type SearchHit, type AskResult, type KnowledgeServiceOptions } from "./core/serve.js";
-export { coverage, normalize, tokens, stem } from "./core/text.js";
+export { coverage, contentQuery, normalize, tokens, stem } from "./core/text.js";
 export { scanSensitive, redact, applySafety, SafetyBlockedError, type SensitiveFinding, type SafetyMode as SafetyModeT } from "./core/safety.js";
 
 // 클라이언트

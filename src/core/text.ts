@@ -48,3 +48,23 @@ export function coverage(needle: string, haystack: string): number {
   for (const t of ns) if (tokenMatch(t, hayToks)) hit++;
   return hit / ns.length;
 }
+
+/** Conversational fillers that must not gate grounded answers.
+ *  Product questions like "회사 이름이 뭐야?" still have to match compiled cards. */
+const QUESTION_FILLERS = new Set([
+  "뭐야", "뭐예요", "뭐에요", "무엇인가", "무엇인가요", "뭔가요", "뭔데", "뭐가", "뭐",
+  "알려줘", "알려주세요", "인가", "인가요", "일까", "일까요",
+  "어디야", "언제야", "누구야", "어때", "어떻게",
+  "있어", "있나요", "있습니까", "있니", "있나",
+  "what", "whats", "who", "where", "when", "how", "please", "tell",
+  "the", "is", "are", "a", "an", "does", "do", "of", "in",
+]);
+
+/** Drop interrogative/filler tokens. Empty result falls back to the original query. */
+export function contentQuery(query: string): string {
+  const kept = tokens(query).filter((t) => {
+    const s = stem(t);
+    return !QUESTION_FILLERS.has(t) && !QUESTION_FILLERS.has(s);
+  });
+  return kept.length ? kept.join(" ") : query;
+}

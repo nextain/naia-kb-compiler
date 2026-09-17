@@ -1,6 +1,6 @@
 /** @spec SPEC-004 / TEST-F-004(보강) — 매칭 정확성: 숫자 정확일치 + 한국어 조사 stem (리뷰 F1/F2). */
 import { describe, it, expect } from "vitest";
-import { coverage, stem } from "../core/text.js";
+import { contentQuery, coverage, stem } from "../core/text.js";
 
 describe("coverage 매칭(리뷰 반영)", () => {
   it("숫자 부분포함 오탐 방지: 300원 ⊄ 1300원", () => {
@@ -20,5 +20,15 @@ describe("coverage 매칭(리뷰 반영)", () => {
     expect(stem("신분증이")).toBe("신분증");
     expect(stem("○○구청은")).toBe("○○구청");
     expect(stem("53000원")).toBe("53000원");
+  });
+});
+
+describe("contentQuery (질문 허사 제거)", () => {
+  it("회사 이름이 뭐야? → 허사 뭐야 제거", () => {
+    expect(contentQuery("회사 이름이 뭐야?")).toBe("회사 이름이");
+  });
+
+  it("허사만 있으면 원문 유지", () => {
+    expect(contentQuery("뭐야?")).toBe("뭐야?");
   });
 });
