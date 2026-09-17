@@ -32,6 +32,8 @@ export interface Relation {
   weight?: number; // 관계 강도(예: co_occurs 공출현 횟수). 옵션 — 미설정 시 1로 취급.
 }
 
+/** draft = compiled, unverified · accepted = gold-QA verified (D04) · gap = failed/blocked, not served.
+ *  Serve-ready = not `gap` (`src/core/serve.ts` `isServeReady`). */
 export type CardStatus = "draft" | "accepted" | "gap";
 
 /** 서비스 카드 = 큐레이트 지식 단위(= 경량 그래프 노드 + 필드). */
@@ -91,7 +93,7 @@ export interface Report {
   relationCount: number;
   acceptedCount: number;
   gapCount: number;
-  /** 게이트에 안 걸린 미검증 카드 수. ⚠️ 소비자는 status="accepted"만 서빙 권장(draft/gap 제외). */
+  /** 게이트에 안 걸린 미검증 카드 수. 서빙은 `gap`만 제외 (`isServeReady`) — draft 도 컴파일 산출이면 검색된다. */
   draftCount: number;
   score?: number;
 }

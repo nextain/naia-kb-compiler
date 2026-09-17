@@ -62,4 +62,19 @@ describe("openWorkspaceKnowledge (통합 K1a 브릿지)", () => {
     expect(loaded).toEqual({ cards: [], entities: [], relations: [] });
     expect((await service.ask("아무거나")).abstained).toBe(true);
   });
+
+  it("draft-only kb.json(제품 컴파일 산출) → search/ask 동작", async () => {
+    const d = await mkdtemp(join(tmpdir(), "kb-open-draft-"));
+    dirs.push(d);
+    const draftKb: Kb = {
+      ...kb,
+      cards: kb.cards.map((c) => ({ ...c, status: "draft" as const })),
+    };
+    await new WorkspaceStoreAdapter({ dir: d }).save(draftKb);
+    const { service, kb: loaded } = await openWorkspaceKnowledge(d);
+    expect(loaded.cards.every((c) => c.status === "draft")).toBe(true);
+    const hits = await service.search("필요서류");
+    expect(hits[0].title).toBe("전입신고");
+    expect((await service.ask("전입신고 필요서류?")).abstained).toBe(false);
+  });
 });
