@@ -44,8 +44,8 @@ const json = await client.exportKb(); // 표준 JSON (무손실·가반)
 ```
 
 ### 핵심 개념
-- **goldQA = 합격 기준(루프 밖 정답 앵커).** 생성된 KB가 이 답을 재현해야 카드가 `accepted`.
-- **카드 status**: `accepted`(검증됨, 서빙OK) / `gap`(문제 표면화) / `draft`(미검증). **소비자는 `accepted`만 서빙** 권장.
+- **goldQA = 합격 기준(루프 밖 정답 앵커).** 생성된 KB가 이 답을 재현해야 카드가 `accepted`. 없으면 카드는 `draft`로 남는다.
+- **카드 status**: `accepted`(gold-QA 검증) / `gap`(문제 표면화, 비서빙) / `draft`(컴파일됨·미검증). **서빙 규칙: `gap`이 아닌 컴파일 카드는 검색·질의에 나온다.** `accepted`는 검증 표시이지 검색 게이트가 아니다.
 - **report.score** = goldQA 재현율(0~1, accepted 기준).
 
 ---

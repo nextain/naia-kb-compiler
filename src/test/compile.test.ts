@@ -2,6 +2,8 @@
 import { describe, it, expect } from "vitest";
 import { createClient, defaultAdapters } from "../client.js";
 import { handleCompile } from "../api/handler.js";
+import { KnowledgeService } from "../core/serve.js";
+import { MemoryRetrievalAdapter } from "../adapters/retrieval/memory.js";
 import { SOURCES, GOLD } from "./fixtures.js";
 
 describe("compile e2e", () => {
@@ -18,10 +20,15 @@ describe("compile e2e", () => {
     expect(JSON.parse(json).kb.cards).toHaveLength(2);
   });
 
-  it("gold 없이도 컴파일(검증 생략)", async () => {
+  it("gold 없이도 컴파일(검증 생략) — 카드는 draft, 서빙은 된다", async () => {
     const res = await createClient().compile({ sources: SOURCES });
     expect(res.report.cardCount).toBe(2);
     expect(res.verify).toBeUndefined();
+    expect(res.kb.cards.every((c) => c.status === "draft")).toBe(true);
+    expect(res.report.acceptedCount).toBe(0);
+    expect(res.report.draftCount).toBe(2);
+    const svc = await KnowledgeService.create(res.kb, new MemoryRetrievalAdapter());
+    expect((await svc.search("수수료"))[0].title).toBe("여권 발급");
   });
 
   it("API 핸들러: 정상 200", async () => {

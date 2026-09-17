@@ -19,6 +19,17 @@ export interface AskResult {
 
 const cardText = (c: ServiceCard) => [c.title, ...Object.values(c.fields)].join(" ");
 
+/** Canonical serve rule: compiled cards are searchable unless marked `gap`.
+ *  `accepted` is gold-QA verification (D04), not the serve gate. Product compile
+ *  has no goldQA, so extract leaves `draft` — those cards must still be served. */
+export function isServeReady(card: Pick<ServiceCard, "status">): boolean {
+  return card.status !== "gap";
+}
+
+export function serveReadyKb(kb: Kb): Kb {
+  return { ...kb, cards: kb.cards.filter(isServeReady) };
+}
+
 /** 카드 본문에서 질의와 가장 관련된 문장/줄을 뽑음(추출형 근거). */
 export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
   const lines = String(card.fields.content ?? cardText(card))
@@ -44,8 +55,9 @@ export class KnowledgeService {
   private constructor(private kb: Kb, private retrieval: RetrievalPort, private opts: KnowledgeServiceOptions = {}) {}
 
   static async create(kb: Kb, retrieval: RetrievalPort, opts: KnowledgeServiceOptions = {}): Promise<KnowledgeService> {
-    await retrieval.index(kb);
-    return new KnowledgeService(kb, retrieval, opts);
+    const served = serveReadyKb(kb);
+    await retrieval.index(served);
+    return new KnowledgeService(served, retrieval, opts);
   }
 
   async search(query: string, k = 8): Promise<SearchHit[]> {
