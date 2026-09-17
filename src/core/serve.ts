@@ -3,7 +3,7 @@
  */
 import type { RetrievalPort, GeneratePort } from "../domain/ports.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
-import { coverage } from "./text.js";
+import { contentQuery, coverage } from "./text.js";
 
 export interface SearchHit {
   title: string;
@@ -74,7 +74,8 @@ export class KnowledgeService {
   async ask(query: string): Promise<AskResult> {
     const hits = await this.retrieval.search(query, 5);
     const threshold = this.opts.answerThreshold ?? 0.4;
-    const best = hits.find((c) => coverage(query, cardText(c)) >= threshold);
+    const needle = contentQuery(query);
+    const best = hits.find((c) => coverage(needle, cardText(c)) >= threshold);
     if (!best) {
       return { abstained: true, answer: "관련 근거를 찾지 못했습니다.", sources: [] };
     }
@@ -83,6 +84,6 @@ export class KnowledgeService {
       const g = await this.opts.generate.answer(query, hits);
       return { abstained: g.abstained, answer: g.text, sources };
     }
-    return { abstained: false, answer: bestSnippet(best, query), sources };
+    return { abstained: false, answer: bestSnippet(best, needle), sources };
   }
 }

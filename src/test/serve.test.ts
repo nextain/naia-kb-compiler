@@ -67,6 +67,29 @@ describe("KnowledgeService", () => {
     expect((await svc.ask("전입신고 필요서류?")).abstained).toBe(true);
   });
 
+  it("draft 카드에 회사명이 있으면 구어 질문도 기권하지 않는다", async () => {
+    const companyKb: Kb = {
+      cards: [
+        {
+          id: "c-co",
+          title: "회사 소개",
+          fields: { content: "회사명은 넥스테인이다. Nextain Inc." },
+          sourceUris: ["file:///ws/company.md"],
+          confidence: 1,
+          status: "draft",
+        },
+      ],
+      entities: [{ id: "e-co", type: "Concept", name: "넥스테인" }],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(companyKb, new Bm25RetrievalAdapter());
+    const hits = await svc.search("회사 이름이 뭐야?");
+    expect(hits[0].title).toBe("회사 소개");
+    const asked = await svc.ask("회사 이름이 뭐야?");
+    expect(asked.abstained).toBe(false);
+    expect(asked.answer).toMatch(/넥스테인|Nextain/);
+  });
+
   it("accepted 와 gap 이 섞이면 accepted 만 서빙한다", async () => {
     const mixed: Kb = {
       cards: [
