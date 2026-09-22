@@ -24,7 +24,9 @@
 
 ## 3. naia-agent 연계 (런타임)
 - kb-compiler를 agent의 **툴/검색 백엔드**로 등록(강제주입 아님). `KnowledgeService.search/ask` 소비.
-- memory와 EmbedPort(BGE-M3 q8 로컬) 공유 → RAM·중복 절감. 둘 다 로컬 추론(프라이버시).
+- 현행: 워크스페이스 지식 서빙(`openWorkspaceKnowledge`)은 IDF 가중·제목 부스트 키워드 검색(`MemoryRetrievalAdapter`)으로 동작하며, 공유 임베딩 없음(임베딩 모델 미로드, naia-memory는 오프라인 e5 dense 벡터 사용).
+- 설계 의도(미구현): memory와 EmbedPort(BGE-M3 q8 로컬) 공유 → RAM·중복 절감(둘 다 로컬 추론). 공유 아이디어는 유지하되 미구현 상태이며 decision_pending (owner: 루크, nextain/naia-shell#681 unit U6).
+- 라우팅 — 지식은 풀 도구라 모델이 호출해야 동작한다. naia-agent 가 지식 도구 등록 턴에 라우팅 지침(FR-KB-7)을 시스템 프롬프트에 붙인다 (naia-shell#681).
 
 ## 4. naia-os UI (크로스리뷰 반영 — 원안 수정)
 - **전용 `knowledge` 패널**(상시 chrome 아님) — 에이전트가 `skill_knowledge_*` 툴 호출 시 **자동 표시**(naia-os 패널-소유-툴 auto-switch 메커니즘 재사용). "sprawl 없음 + 주소화 목적지 + 맥락 등장" 동시 충족.
@@ -39,6 +41,7 @@
 - naia-agent 툴 등록 + 서빙 배선.
 - naia-os `knowledge` 패널(위 4) — naia-os/naia-agent 양 repo 작업.
 - 파트너: naia 통째 vs 지식 조각만 → 흡수(A) vs 얇은 모듈(B) 결정.
+- 기억↔지식 다리 / EmbedPort 공유 — decision_pending (naia-shell#681 U6).
 
 ## 크로스리뷰 출처
 - R1 UX/IA: NEEDS-REVISION(신선도 브릿지·주소화 목적지·폴더≠지식). R2 전용패널 옹호: ONLY-FOR-OPERATORS(개인=fold/자동, 운영자=콘솔, 기준=큐레이션 빈도). R3 naia-os 타당성: FEASIBLE-WITH-CHANGES(패널-소유-툴 auto-switch가 동적 메커니즘, 검색=agent-side, 워크스페이스 탭 실재, 그래프=신규 lib).
