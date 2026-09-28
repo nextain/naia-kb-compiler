@@ -1,6 +1,6 @@
 /** @spec SPEC-008 / TEST-F-008 — KnowledgeService 검색·질의응답 + 기권. */
 import { describe, it, expect } from "vitest";
-import { KnowledgeService, isServeReady } from "../core/serve.js";
+import { KnowledgeService, isServeReady, bestSnippet } from "../core/serve.js";
 import { Bm25RetrievalAdapter } from "../adapters/retrieval/bm25.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
 
@@ -103,4 +103,57 @@ describe("KnowledgeService", () => {
     const hits = await svc.search("신분증");
     expect(hits.every((h) => h.title !== "전입신고")).toBe(true);
   });
+
+  it("bestSnippet: 마크다운 제목 줄 대신 본문 값 줄을 고른다", () => {
+    const card: ServiceCard = {
+      id: "c-deploy",
+      title: "배포 규칙 - 금요일 배포 제한",
+      fields: {
+        content: "# 배포 규칙 - 금요일 배포 제한\n\n## 배포 규칙\n\n- 배포는 0755 이후 금요일에 하지 않는다.",
+      },
+      sourceUris: ["file:///ws/deploy-rule.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    expect(bestSnippet(card, "배포 규칙")).toBe("- 배포는 0755 이후 금요일에 하지 않는다.");
+  });
+
+  it("ask: 마크다운 제목 줄을 건너뛰고 본문 값 줄(0755)을 답변으로 반환한다", async () => {
+    const deployKb: Kb = {
+      cards: [
+        {
+          id: "c-deploy",
+          title: "배포 규칙 - 금요일 배포 제한",
+          fields: {
+            content: "## 배포 규칙\n\n- 배포는 0755 이후 금요일에 하지 않는다.",
+          },
+          sourceUris: ["file:///ws/deploy-rule.md"],
+          confidence: 1,
+          status: "accepted",
+        },
+      ],
+      entities: [],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(deployKb, new Bm25RetrievalAdapter());
+    const r = await svc.ask("배포 규칙이 뭐였지?");
+    expect(r.abstained).toBe(false);
+    expect(r.answer).toContain("0755");
+  });
+
+  it("bestSnippet: 제목 줄뿐인 content면 제목 줄을 돌려준다", () => {
+    const card: ServiceCard = {
+      id: "c-heading-only",
+      title: "배포 규칙",
+      fields: {
+        content: "# 배포 규칙\n## 금요일 배포 제한",
+      },
+      sourceUris: ["file:///ws/heading-only.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    expect(bestSnippet(card, "배포 규칙")).toMatch(/^#{1,6}\s/);
+    expect(bestSnippet(card, "금요일")).toBe("## 금요일 배포 제한");
+  });
 });
+

@@ -36,9 +36,11 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
     .split(/\r?\n|(?<=[.!?。])\s+/)
     .map((l) => l.trim())
     .filter((l) => l.length > 1);
-  let best = lines[0] ?? card.title;
+  const nonHeadings = lines.filter((l) => !/^#{1,6}\s/.test(l));
+  const candidates = nonHeadings.length > 0 ? nonHeadings : lines;
+  let best = candidates[0] ?? card.title;
   let bs = -1;
-  for (const l of lines) {
+  for (const l of candidates) {
     const s = coverage(q, l);
     if (s > bs) { bs = s; best = l; }
   }
