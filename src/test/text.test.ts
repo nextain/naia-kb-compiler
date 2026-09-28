@@ -21,6 +21,12 @@ describe("coverage 매칭(리뷰 반영)", () => {
     expect(stem("○○구청은")).toBe("○○구청");
     expect(stem("53000원")).toBe("53000원");
   });
+
+  it("이름 ↔ 3자 이상 ○○명 매칭 (2자 제외)", () => {
+    expect(coverage("회사 이름", "회사명은 넥스테인이다")).toBe(1);
+    expect(coverage("이름", "유명 인사")).toBe(0);
+    expect(coverage("이름", "설명")).toBe(0);
+  });
 });
 
 describe("contentQuery (질문 허사 제거)", () => {
@@ -30,5 +36,13 @@ describe("contentQuery (질문 허사 제거)", () => {
 
   it("허사만 있으면 원문 유지", () => {
     expect(contentQuery("뭐야?")).toBe("뭐야?");
+  });
+
+  it("인가 유지: 인가 절차 알려줘, 영업 인가는 어떻게 받아?", () => {
+    const q1 = contentQuery("인가 절차 알려줘");
+    expect(q1).toContain("인가");
+    expect(q1).toContain("절차");
+    const q2 = contentQuery("영업 인가는 어떻게 받아?");
+    expect(q2).toContain("인가");
   });
 });

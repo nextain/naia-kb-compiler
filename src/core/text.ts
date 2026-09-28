@@ -26,6 +26,10 @@ export function stem(t: string): string {
   return t;
 }
 
+function isMyeongEnding(t: string): boolean {
+  return t.length >= 3 && t.endsWith("명");
+}
+
 function tokenMatch(needle: string, hayTokens: string[]): boolean {
   if (/\d/.test(needle)) {
     // 숫자/단위: 정확 일치만 (1300원이 300원을 포함으로 오탐 방지)
@@ -35,25 +39,36 @@ function tokenMatch(needle: string, hayTokens: string[]): boolean {
   if (ns.length < 2) return hayTokens.includes(needle);
   return hayTokens.some((h) => {
     const hs = stem(h);
-    return hs === ns || hs.includes(ns) || ns.includes(hs); // 붙여쓰기 양방향 부분일치
+    if (hs === ns || hs.includes(ns) || ns.includes(hs)) return true; // 붙여쓰기 양방향 부분일치
+    if (ns === "이름" && (isMyeongEnding(h) || isMyeongEnding(hs))) {
+      return true;
+    }
+    return false;
   });
+}
+
+/** haystack 안에 needle 토큰이 몇 개 들어있나. coverage와 동일한 tokenMatch 규칙. */
+export function matchedTokenCount(needle: string, haystack: string): number {
+  const ns = tokens(needle);
+  if (ns.length === 0) return 0;
+  const hayToks = tokens(haystack);
+  let hit = 0;
+  for (const t of ns) if (tokenMatch(t, hayToks)) hit++;
+  return hit;
 }
 
 /** haystack 안에 needle 토큰이 얼마나 들어있나 (0..1). 정답 재현/질문 관련성 공통. */
 export function coverage(needle: string, haystack: string): number {
   const ns = tokens(needle);
   if (ns.length === 0) return 0;
-  const hayToks = tokens(haystack);
-  let hit = 0;
-  for (const t of ns) if (tokenMatch(t, hayToks)) hit++;
-  return hit / ns.length;
+  return matchedTokenCount(needle, haystack) / ns.length;
 }
 
 /** Conversational fillers that must not gate grounded answers.
  *  Product questions like "회사 이름이 뭐야?" still have to match compiled cards. */
 const QUESTION_FILLERS = new Set([
   "뭐야", "뭐예요", "뭐에요", "무엇인가", "무엇인가요", "뭔가요", "뭔데", "뭐가", "뭐",
-  "알려줘", "알려주세요", "인가", "인가요", "일까", "일까요",
+  "알려줘", "알려주세요", "인가요", "일까", "일까요",
   "어디야", "언제야", "누구야", "어때", "어떻게",
   "있어", "있나요", "있습니까", "있니", "있나",
   "what", "whats", "who", "where", "when", "how", "please", "tell",

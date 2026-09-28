@@ -3,7 +3,7 @@
  */
 import type { RetrievalPort, GeneratePort } from "../domain/ports.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
-import { contentQuery, coverage } from "./text.js";
+import { contentQuery, coverage, matchedTokenCount, tokens } from "./text.js";
 
 export interface SearchHit {
   title: string;
@@ -37,7 +37,8 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
     .map((l) => l.trim())
     .filter((l) => l.length > 1);
   const nonHeadings = lines.filter((l) => !/^#{1,6}\s/.test(l));
-  const candidates = nonHeadings.length > 0 ? nonHeadings : lines;
+  const hasMatchingNonHeading = nonHeadings.some((l) => coverage(q, l) > 0);
+  const candidates = hasMatchingNonHeading ? nonHeadings : lines;
   let best = candidates[0] ?? card.title;
   let bs = -1;
   for (const l of candidates) {
@@ -77,7 +78,13 @@ export class KnowledgeService {
     const hits = await this.retrieval.search(query, 5);
     const threshold = this.opts.answerThreshold ?? 0.4;
     const needle = contentQuery(query);
-    const best = hits.find((c) => coverage(needle, cardText(c)) >= threshold);
+    const needleToks = tokens(needle);
+    const best = hits.find((c) => {
+      const text = cardText(c);
+      if (coverage(needle, text) < threshold) return false;
+      if (needleToks.length >= 2 && matchedTokenCount(needle, text) < 2) return false;
+      return true;
+    });
     if (!best) {
       return { abstained: true, answer: "관련 근거를 찾지 못했습니다.", sources: [] };
     }

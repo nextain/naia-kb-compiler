@@ -155,5 +155,55 @@ describe("KnowledgeService", () => {
     expect(bestSnippet(card, "배포 규칙")).toMatch(/^#{1,6}\s/);
     expect(bestSnippet(card, "금요일")).toBe("## 금요일 배포 제한");
   });
+
+  it("bestSnippet (a): 비제목 줄 coverage가 0이면 제목 줄을 유지한다", () => {
+    const card: ServiceCard = {
+      id: "c-refund",
+      title: "환불 안내",
+      fields: {
+        content: "## 환불\n---\n문의는 고객센터로.",
+      },
+      sourceUris: ["file:///ws/refund.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    expect(bestSnippet(card, "환불")).toBe("## 환불");
+  });
+
+  it("bestSnippet (b): 비제목 줄에 질의 토큰이 없으면 제목 줄에서 고른다", () => {
+    const card: ServiceCard = {
+      id: "c-deploy-h3",
+      title: "배포 금지 안내",
+      fields: {
+        content: "### 0755 이후 금요일 배포 금지\n자세한 설명은 위 제목을 참고.",
+      },
+      sourceUris: ["file:///ws/deploy-h3.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    expect(bestSnippet(card, "0755")).toContain("0755");
+  });
+
+  it("ask (e): 내용 토큰 2개 이상일 때 2개 미만 적중 카드는 기권한다", async () => {
+    const locationKb: Kb = {
+      cards: [
+        {
+          id: "c-loc",
+          title: "회사 위치",
+          fields: {
+            content: "사무실은 서울 강남구에 있다.",
+          },
+          sourceUris: ["file:///ws/location.md"],
+          confidence: 1,
+          status: "accepted",
+        },
+      ],
+      entities: [],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(locationKb, new Bm25RetrievalAdapter());
+    const r = await svc.ask("회사 이름이 뭐야?");
+    expect(r.abstained).toBe(true);
+  });
 });
 
