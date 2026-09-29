@@ -3,6 +3,8 @@ import { describe, it, expect } from "vitest";
 import { KnowledgeService, isServeReady, bestSnippet } from "../core/serve.js";
 import { Bm25RetrievalAdapter } from "../adapters/retrieval/bm25.js";
 import { MemoryRetrievalAdapter } from "../adapters/retrieval/memory.js";
+import { IngestAdapter } from "../adapters/ingest/text.js";
+import { MarkdownExtractAdapter } from "../adapters/extract/markdown.js";
 import { contentQuery } from "../core/text.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
 
@@ -106,41 +108,29 @@ describe("KnowledgeService", () => {
     expect(hits.every((h) => h.title !== "전입신고")).toBe(true);
   });
 
-  it("bestSnippet: 마크다운 제목 줄 대신 본문 값 줄을 고른다", () => {
+  it("배포 규칙 카드: bestSnippet, search, ask에 0755가 있다", async () => {
     const card: ServiceCard = {
       id: "c-deploy",
-      title: "배포 규칙 - 금요일 배포 제한",
+      title: "배포 규칙",
       fields: {
-        content: "# 배포 규칙 - 금요일 배포 제한\n\n## 배포 규칙\n\n- 배포는 0755 이후 금요일에 하지 않는다.",
+        content: "## 배포 규칙\n\n- 배포는 0755 이후 금요일에 하지 않는다.",
       },
       sourceUris: ["file:///ws/deploy-rule.md"],
       confidence: 1,
       status: "accepted",
     };
     expect(bestSnippet(card, "배포 규칙")).toBe("- 배포는 0755 이후 금요일에 하지 않는다.");
-  });
 
-  it("ask: 마크다운 제목 줄을 건너뛰고 본문 값 줄(0755)을 답변으로 반환한다", async () => {
-    const deployKb: Kb = {
-      cards: [
-        {
-          id: "c-deploy",
-          title: "배포 규칙 - 금요일 배포 제한",
-          fields: {
-            content: "## 배포 규칙\n\n- 배포는 0755 이후 금요일에 하지 않는다.",
-          },
-          sourceUris: ["file:///ws/deploy-rule.md"],
-          confidence: 1,
-          status: "accepted",
-        },
-      ],
-      entities: [],
-      relations: [],
-    };
-    const svc = await KnowledgeService.create(deployKb, new Bm25RetrievalAdapter());
-    const r = await svc.ask("배포 규칙이 뭐였지?");
-    expect(r.abstained).toBe(false);
-    expect(r.answer).toContain("0755");
+    const deployKb: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(deployKb, new Adapter());
+      const hits = await svc.search("배포 규칙");
+      expect(hits[0].snippet).toContain("0755");
+
+      const asked = await svc.ask("배포 규칙이 뭐였지?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("0755");
+    }
   });
 
   it("bestSnippet: 제목 줄뿐인 content면 제목 줄을 돌려준다", () => {
@@ -158,7 +148,7 @@ describe("KnowledgeService", () => {
     expect(bestSnippet(card, "금요일")).toBe("## 금요일 배포 제한");
   });
 
-  it("bestSnippet (a): 비제목 줄 coverage가 0이면 제목 줄을 유지한다", () => {
+  it("## 환불 / --- / 문의는 고객센터로.: 질의 환불 → 문의는 고객센터로.(라벨 제목 아래 첫 내용 줄)", () => {
     const card: ServiceCard = {
       id: "c-refund",
       title: "환불 안내",
@@ -169,10 +159,10 @@ describe("KnowledgeService", () => {
       confidence: 1,
       status: "accepted",
     };
-    expect(bestSnippet(card, "환불")).toBe("## 환불");
+    expect(bestSnippet(card, "환불")).toBe("문의는 고객센터로.");
   });
 
-  it("bestSnippet (b): 비제목 줄에 질의 토큰이 없으면 제목 줄에서 고른다", () => {
+  it("### 0755 이후 금요일 배포 금지 / 자세한 설명은 위 제목을 참고.: 질의 0755 → 제목 줄", () => {
     const card: ServiceCard = {
       id: "c-deploy-h3",
       title: "배포 금지 안내",
@@ -183,7 +173,61 @@ describe("KnowledgeService", () => {
       confidence: 1,
       status: "accepted",
     };
-    expect(bestSnippet(card, "0755")).toContain("0755");
+    expect(bestSnippet(card, "0755")).toBe("### 0755 이후 금요일 배포 금지");
+  });
+
+  it("### 0755 이후 금요일 배포 금지 / 배포 문서는 위키에 있다.: 질의 배포 → 결과에 0755가 있다", () => {
+    const card: ServiceCard = {
+      id: "c-deploy-h3-wiki",
+      title: "배포 금지 안내",
+      fields: {
+        content: "### 0755 이후 금요일 배포 금지\n배포 문서는 위키에 있다.",
+      },
+      sourceUris: ["file:///ws/deploy-h3-wiki.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    expect(bestSnippet(card, "배포")).toContain("0755");
+  });
+
+  it("## 환불은 7일 이내 / 환불 문의는 고객센터.: ask('환불 알려줘') → 7일", async () => {
+    const card: ServiceCard = {
+      id: "c-refund-7d",
+      title: "환불 안내",
+      fields: {
+        content: "## 환불은 7일 이내\n환불 문의는 고객센터.",
+      },
+      sourceUris: ["file:///ws/refund-7d.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbRefund: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbRefund, new Adapter());
+      const asked = await svc.ask("환불 알려줘");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("7일");
+    }
+  });
+
+  it("## 배포 규칙은 0755 이후 금지 / 배포 예외는 없다.: ask('배포 규칙이 뭐야?') → 0755", async () => {
+    const card: ServiceCard = {
+      id: "c-deploy-0755-noexc",
+      title: "배포 규칙",
+      fields: {
+        content: "## 배포 규칙은 0755 이후 금지\n배포 예외는 없다.",
+      },
+      sourceUris: ["file:///ws/deploy-rule-noexc.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbDeploy: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbDeploy, new Adapter());
+      const asked = await svc.ask("배포 규칙이 뭐야?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("0755");
+    }
   });
 
   it("ask (e): 내용 토큰 2개 이상일 때 2개 미만 적중 카드는 기권한다", async () => {
@@ -338,6 +382,108 @@ describe("KnowledgeService", () => {
     // idempotent 확인: search와 ask의 스니펫이 동일
     expect(bestSnippet(refundCard, "환불 있어?")).toBe("## 환불은 7일 이내");
     expect(bestSnippet(refundCard, "환불 있어?")).toBe(bestSnippet(refundCard, contentQuery("환불 있어?")));
+  });
+
+  it("MarkdownExtractAdapter로 만든 회사 소개.md: ask('회사 이름이 뭐야?') → 넥스테인이 있고 2020은 없다", async () => {
+    const md = `이 회사는 2020년에 시작했다.
+
+## 회사명
+넥스테인
+
+## 위치
+서울 강남구
+`;
+    const sources = await new IngestAdapter().ingest([{ kind: "text", title: "회사 소개", text: md }]);
+    const extracted = await new MarkdownExtractAdapter().extract(sources);
+    const companyKb: Kb = {
+      cards: extracted.cards,
+      entities: extracted.entities,
+      relations: extracted.relations,
+    };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(companyKb, new Adapter());
+      const asked = await svc.ask("회사 이름이 뭐야?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("넥스테인");
+      expect(asked.answer).not.toContain("2020");
+    }
+  });
+
+  it("## 나이아 제품 전시 소개 / 본 회사의 첫 데모.: search('default 회사 제품 전시 소개') 스니펫 → 제목 줄", async () => {
+    const card: ServiceCard = {
+      id: "c-naia-demo",
+      title: "제품 전시 소개",
+      fields: {
+        content: "## 나이아 제품 전시 소개\n본 회사의 첫 데모.",
+      },
+      sourceUris: ["file:///ws/naia-demo.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const naiaKb: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(naiaKb, new Adapter());
+      const hits = await svc.search("default 회사 제품 전시 소개");
+      expect(hits[0].snippet).toBe("## 나이아 제품 전시 소개");
+    }
+  });
+
+  it("답 유지(f1ceb07이 답하던 것): 위치 카드 어디/어디예요, 여권 카드 얼마죠/누구예요/누구, 배포 카드 배포 가능해", async () => {
+    const locCard: ServiceCard = {
+      id: "c-loc",
+      title: "회사 위치",
+      fields: { content: "사무실은 서울 강남구에 있다." },
+      sourceUris: ["file:///ws/loc.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const passCard: ServiceCard = {
+      id: "c-pass",
+      title: "여권 발급",
+      fields: { content: "여권 발급 대상은 국민. 수수료는 53000원. 담당은 민원여권과." },
+      sourceUris: ["file:///ws/pass.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const depCard: ServiceCard = {
+      id: "c-dep",
+      title: "배포 규칙",
+      fields: { content: "## 배포 규칙\n- 배포는 0755 이후 금요일에 하지 않는다." },
+      sourceUris: ["file:///ws/dep.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      // 위치 카드
+      const locSvc = await KnowledgeService.create({ cards: [locCard], entities: [], relations: [] }, new Adapter());
+      const rLoc1 = await locSvc.ask("회사 어디?");
+      expect(rLoc1.abstained).toBe(false);
+      expect(rLoc1.answer).toContain("강남구");
+
+      const rLoc2 = await locSvc.ask("사무실 어디예요?");
+      expect(rLoc2.abstained).toBe(false);
+      expect(rLoc2.answer).toContain("강남구");
+
+      // 여권 카드
+      const passSvc = await KnowledgeService.create({ cards: [passCard], entities: [], relations: [] }, new Adapter());
+      const rPass1 = await passSvc.ask("수수료는 얼마죠?");
+      expect(rPass1.abstained).toBe(false);
+      expect(rPass1.answer).toContain("53000");
+
+      const rPass2 = await passSvc.ask("담당은 누구예요?");
+      expect(rPass2.abstained).toBe(false);
+      expect(rPass2.answer).toContain("민원여권과");
+
+      const rPass3 = await passSvc.ask("담당 누구?");
+      expect(rPass3.abstained).toBe(false);
+      expect(rPass3.answer).toContain("민원여권과");
+
+      // 배포 카드
+      const depSvc = await KnowledgeService.create({ cards: [depCard], entities: [], relations: [] }, new Adapter());
+      const rDep = await depSvc.ask("배포 가능해?");
+      expect(rDep.abstained).toBe(false);
+    }
   });
 });
 

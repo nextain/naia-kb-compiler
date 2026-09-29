@@ -31,15 +31,18 @@ export function stem(t: string): string {
 const QUESTION_FILLERS = new Set([
   "뭐야", "뭐예요", "뭐에요", "무엇인가", "무엇인가요", "뭔가요", "뭔데", "뭐가", "뭐",
   "알려줘", "알려주세요", "인가요", "일까", "일까요",
-  "어디야", "언제야", "언제", "누구야", "누구지", "어때", "어떻게",
+  "어디", "어디야", "어디예요", "어디에요",
+  "언제야", "언제",
+  "누구", "누구야", "누구지", "누구예요", "누구에요",
+  "어때", "어떻게",
   "있어", "있나요", "있습니까", "있니", "있나",
-  "얼마", "얼마야", "얼마예요", "얼마에요", "얼마나",
+  "얼마", "얼마야", "얼마예요", "얼마에요", "얼마나", "얼마죠",
   "뭐였지", "뭐지", "뭐죠", "뭐였어", "왜",
   "what", "whats", "who", "where", "when", "how", "please", "tell",
   "the", "is", "are", "a", "an", "does", "do", "of", "in",
 ]);
 
-function tokenMatch(needle: string, hayTokens: string[], otherStems?: Set<string>): boolean {
+export function tokenMatch(needle: string, hayTokens: string[], otherStems?: Set<string>): boolean {
   if (/\d/.test(needle)) {
     // 숫자/단위: 정확 일치만 (1300원이 300원을 포함으로 오탐 방지)
     return hayTokens.includes(needle);
@@ -60,6 +63,28 @@ function tokenMatch(needle: string, hayTokens: string[], otherStems?: Set<string
     }
     return false;
   });
+}
+
+/** 제목의 내용 토큰이 모두 질의 needle 토큰에 적중하는지 판정(라벨 제목). */
+export function isLabelHeading(headingLine: string, query: string): boolean {
+  if (!/^#{1,6}\s/.test(headingLine)) return false;
+  const headingText = headingLine.replace(/^#{1,6}\s+/, "");
+  const rawHToks = tokens(headingText);
+  const hToks = rawHToks.filter((t) => {
+    const s = stem(t);
+    return !QUESTION_FILLERS.has(t) && !QUESTION_FILLERS.has(s);
+  });
+  const headingContentToks = hToks.length > 0 ? hToks : rawHToks;
+  if (headingContentToks.length === 0) return false;
+
+  const nq = contentQuery(query);
+  const needleToks = tokens(nq);
+  if (needleToks.length === 0) return false;
+
+  const needleStems = needleToks.map(stem);
+  const otherStems = new Set(needleStems.filter((s) => s !== "이름"));
+
+  return headingContentToks.every((ht) => tokenMatch(ht, needleToks, otherStems));
 }
 
 /** haystack 안에 needle 토큰이 몇 개 들어있나. coverage와 동일한 tokenMatch 규칙. */

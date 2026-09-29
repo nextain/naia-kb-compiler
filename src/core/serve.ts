@@ -3,7 +3,7 @@
  */
 import type { RetrievalPort, GeneratePort } from "../domain/ports.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
-import { contentQuery, coverage, matchedTokenCount, tokens } from "./text.js";
+import { contentQuery, coverage, isLabelHeading, matchedTokenCount, tokens } from "./text.js";
 
 export interface SearchHit {
   title: string;
@@ -30,6 +30,13 @@ export function serveReadyKb(kb: Kb): Kb {
   return { ...kb, cards: kb.cards.filter(isServeReady) };
 }
 
+function isContentLine(l: string): boolean {
+  if (/^#{1,6}\s/.test(l)) return false;
+  if (/^`{3,}/.test(l)) return false;
+  if (/^[-*_]{3,}$/.test(l)) return false;
+  return /[\p{L}\p{N}]/u.test(l);
+}
+
 /** 카드 본문에서 질의와 가장 관련된 문장/줄을 뽑음(추출형 근거). */
 export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
   const nq = contentQuery(q);
@@ -37,15 +44,35 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
     .split(/\r?\n|(?<=[.!?。])\s+/)
     .map((l) => l.trim())
     .filter((l) => l.length > 1);
-  const nonHeadings = lines.filter((l) => !/^#{1,6}\s/.test(l));
-  const hasMatchingNonHeading = nonHeadings.some((l) => coverage(nq, l) > 0);
-  const candidates = hasMatchingNonHeading ? nonHeadings : lines;
-  let best = candidates[0] ?? card.title;
+
+  let best = lines[0] ?? card.title;
+  let bestIdx = 0;
   let bs = -1;
-  for (const l of candidates) {
+  for (let i = 0; i < lines.length; i++) {
+    const l = lines[i];
     const s = coverage(nq, l);
-    if (s > bs) { bs = s; best = l; }
+    if (s > bs) {
+      bs = s;
+      best = l;
+      bestIdx = i;
+    }
   }
+
+  if (/^#{1,6}\s/.test(best)) {
+    if (isLabelHeading(best, nq)) {
+      for (let j = bestIdx + 1; j < lines.length; j++) {
+        const line = lines[j];
+        if (/^#{1,6}\s/.test(line)) {
+          break;
+        }
+        if (isContentLine(line)) {
+          return line.slice(0, max);
+        }
+      }
+    }
+    return best.slice(0, max);
+  }
+
   return best.slice(0, max);
 }
 
@@ -82,9 +109,14 @@ export class KnowledgeService {
     const needleToks = tokens(needle);
     const best = hits.find((c) => {
       const text = cardText(c);
-      if (coverage(needle, text) < threshold) return false;
-      if (needleToks.length >= 2 && matchedTokenCount(needle, text) < 2) return false;
-      return true;
+      if (coverage(query, text) >= threshold) return true;
+      if (coverage(needle, text) >= threshold) {
+        if (needleToks.length >= 2) {
+          return matchedTokenCount(needle, text) >= 2;
+        }
+        return true;
+      }
+      return false;
     });
     if (!best) {
       return { abstained: true, answer: "관련 근거를 찾지 못했습니다.", sources: [] };
@@ -94,6 +126,6 @@ export class KnowledgeService {
       const g = await this.opts.generate.answer(query, hits);
       return { abstained: g.abstained, answer: g.text, sources };
     }
-    return { abstained: false, answer: bestSnippet(best, needle), sources };
+    return { abstained: false, answer: bestSnippet(best, query), sources };
   }
 }

@@ -1,6 +1,6 @@
 /** @spec SPEC-004 / TEST-F-004(보강) — 매칭 정확성: 숫자 정확일치 + 한국어 조사 stem (리뷰 F1/F2). */
 import { describe, it, expect } from "vitest";
-import { contentQuery, coverage, stem } from "../core/text.js";
+import { contentQuery, coverage, isLabelHeading, stem } from "../core/text.js";
 
 describe("coverage 매칭(리뷰 반영)", () => {
   it("숫자 부분포함 오탐 방지: 300원 ⊄ 1300원", () => {
@@ -62,6 +62,13 @@ describe("contentQuery (질문 허사 제거)", () => {
     expect(contentQuery("담당 누구지?")).toBe("담당");
     expect(contentQuery("배포 언제?")).toBe("배포");
     expect(contentQuery("이유가 왜?")).toBe("이유가");
+    expect(contentQuery("회사 어디?")).toBe("회사");
+    expect(contentQuery("사무실 어디예요?")).toBe("사무실");
+    expect(contentQuery("사무실 어디에요?")).toBe("사무실");
+    expect(contentQuery("담당은 누구예요?")).toBe("담당은");
+    expect(contentQuery("담당은 누구에요?")).toBe("담당은");
+    expect(contentQuery("수수료는 얼마죠?")).toBe("수수료는");
+    expect(contentQuery("담당 누구?")).toBe("담당");
   });
 
   it("contentQuery idempotent 확인", () => {
@@ -69,5 +76,23 @@ describe("contentQuery (질문 허사 제거)", () => {
     for (const q of queries) {
       expect(contentQuery(contentQuery(q))).toBe(contentQuery(q));
     }
+  });
+});
+
+describe("isLabelHeading (라벨 제목 판정)", () => {
+  it("라벨 제목: 내용 토큰이 모두 질의에 적중", () => {
+    expect(isLabelHeading("## 배포 규칙", "배포 규칙이 뭐였지?")).toBe(true);
+    expect(isLabelHeading("## 배포 규칙", "배포 규칙")).toBe(true);
+    expect(isLabelHeading("## 회사명", "회사 이름이 뭐야?")).toBe(true);
+    expect(isLabelHeading("## 환불", "환불")).toBe(true);
+  });
+
+  it("질의 밖 토큰이 포함된 제목은 라벨 제목이 아님", () => {
+    expect(isLabelHeading("## 배포 규칙은 0755 이후 금지", "배포 규칙이 뭐야?")).toBe(false);
+    expect(isLabelHeading("## 환불은 7일 이내", "환불 알려줘")).toBe(false);
+    expect(isLabelHeading("## 환불은 7일 이내", "환불 있어?")).toBe(false);
+    expect(isLabelHeading("### 0755 이후 금요일 배포 금지", "0755")).toBe(false);
+    expect(isLabelHeading("### 0755 이후 금요일 배포 금지", "배포")).toBe(false);
+    expect(isLabelHeading("## 나이아 제품 전시 소개", "default 회사 제품 전시 소개")).toBe(false);
   });
 });
