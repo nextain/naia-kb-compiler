@@ -16,7 +16,7 @@ export function tokens(s: string): string[] {
 }
 
 // 흔한 한국어 조사(어미는 미포함 — MVP). 끝에서 1회 제거.
-const JOSA = /(으로서|으로써|에서는|에게서|에서|께서|이라고|라고|이라는|라는|으로|은|는|이|가|을|를|에|의|와|과|도|로|만|께|한테|에게|까지|부터|보다|처럼|마다|이나|나)$/;
+const JOSA = /(으로서|으로써|에서는|에게서|에서|께서|이라고|라고|이라는|라는|입니다|이다|으로|은|는|이|가|을|를|에|의|와|과|도|로|만|께|한테|에게|까지|부터|보다|처럼|마다|이나|나)$/;
 
 /** 숫자 포함 토큰은 변형 안 함(정확 매칭 대상). 그 외 조사 1회 절단. */
 export function stem(t: string): string {
@@ -26,11 +26,20 @@ export function stem(t: string): string {
   return t;
 }
 
-function isMyeongEnding(t: string): boolean {
-  return t.length >= 3 && t.endsWith("명");
-}
+/** Conversational fillers that must not gate grounded answers.
+ *  Product questions like "회사 이름이 뭐야?" still have to match compiled cards. */
+const QUESTION_FILLERS = new Set([
+  "뭐야", "뭐예요", "뭐에요", "무엇인가", "무엇인가요", "뭔가요", "뭔데", "뭐가", "뭐",
+  "알려줘", "알려주세요", "인가요", "일까", "일까요",
+  "어디야", "언제야", "언제", "누구야", "누구지", "어때", "어떻게",
+  "있어", "있나요", "있습니까", "있니", "있나",
+  "얼마", "얼마야", "얼마예요", "얼마에요", "얼마나",
+  "뭐였지", "뭐지", "뭐죠", "뭐였어", "왜",
+  "what", "whats", "who", "where", "when", "how", "please", "tell",
+  "the", "is", "are", "a", "an", "does", "do", "of", "in",
+]);
 
-function tokenMatch(needle: string, hayTokens: string[]): boolean {
+function tokenMatch(needle: string, hayTokens: string[], otherStems?: Set<string>): boolean {
   if (/\d/.test(needle)) {
     // 숫자/단위: 정확 일치만 (1300원이 300원을 포함으로 오탐 방지)
     return hayTokens.includes(needle);
@@ -40,8 +49,14 @@ function tokenMatch(needle: string, hayTokens: string[]): boolean {
   return hayTokens.some((h) => {
     const hs = stem(h);
     if (hs === ns || hs.includes(ns) || ns.includes(hs)) return true; // 붙여쓰기 양방향 부분일치
-    if (ns === "이름" && (isMyeongEnding(h) || isMyeongEnding(hs))) {
-      return true;
+    if (ns === "이름" && otherStems && otherStems.size > 0) {
+      const target = hs.endsWith("명") ? hs : (h.endsWith("명") ? h : "");
+      if (target.endsWith("명") && target.length >= 3) {
+        const prefix = target.slice(0, -1);
+        if (otherStems.has(prefix) || otherStems.has(stem(prefix))) {
+          return true;
+        }
+      }
     }
     return false;
   });
@@ -52,8 +67,15 @@ export function matchedTokenCount(needle: string, haystack: string): number {
   const ns = tokens(needle);
   if (ns.length === 0) return 0;
   const hayToks = tokens(haystack);
+  const contentStems = ns
+    .filter((t) => {
+      const s = stem(t);
+      return !QUESTION_FILLERS.has(t) && !QUESTION_FILLERS.has(s);
+    })
+    .map(stem);
+  const otherStems = new Set(contentStems.filter((s) => s !== "이름"));
   let hit = 0;
-  for (const t of ns) if (tokenMatch(t, hayToks)) hit++;
+  for (const t of ns) if (tokenMatch(t, hayToks, otherStems)) hit++;
   return hit;
 }
 
@@ -63,17 +85,6 @@ export function coverage(needle: string, haystack: string): number {
   if (ns.length === 0) return 0;
   return matchedTokenCount(needle, haystack) / ns.length;
 }
-
-/** Conversational fillers that must not gate grounded answers.
- *  Product questions like "회사 이름이 뭐야?" still have to match compiled cards. */
-const QUESTION_FILLERS = new Set([
-  "뭐야", "뭐예요", "뭐에요", "무엇인가", "무엇인가요", "뭔가요", "뭔데", "뭐가", "뭐",
-  "알려줘", "알려주세요", "인가요", "일까", "일까요",
-  "어디야", "언제야", "누구야", "어때", "어떻게",
-  "있어", "있나요", "있습니까", "있니", "있나",
-  "what", "whats", "who", "where", "when", "how", "please", "tell",
-  "the", "is", "are", "a", "an", "does", "do", "of", "in",
-]);
 
 /** Drop interrogative/filler tokens. Empty result falls back to the original query. */
 export function contentQuery(query: string): string {

@@ -2,6 +2,8 @@
 import { describe, it, expect } from "vitest";
 import { KnowledgeService, isServeReady, bestSnippet } from "../core/serve.js";
 import { Bm25RetrievalAdapter } from "../adapters/retrieval/bm25.js";
+import { MemoryRetrievalAdapter } from "../adapters/retrieval/memory.js";
+import { contentQuery } from "../core/text.js";
 import type { Kb, ServiceCard } from "../domain/types.js";
 
 const kb: Kb = {
@@ -204,6 +206,138 @@ describe("KnowledgeService", () => {
     const svc = await KnowledgeService.create(locationKb, new Bm25RetrievalAdapter());
     const r = await svc.ask("회사 이름이 뭐야?");
     expect(r.abstained).toBe(true);
+  });
+
+  it("회사 규모 (직원 15명.) 카드만 있으면 기권하고, 회사명 카드가 함께 있으면 카드 순서와 무관하게 넥스테인을 반환한다", async () => {
+    const countCard: ServiceCard = {
+      id: "c-count",
+      title: "회사 규모",
+      fields: { content: "직원 15명." },
+      sourceUris: ["file:///ws/count.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const nameCard: ServiceCard = {
+      id: "c-name",
+      title: "회사 소개",
+      fields: { content: "회사명은 넥스테인이다." },
+      sourceUris: ["file:///ws/name.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+
+    // 1. 직원 15명 카드만 있으면 기권
+    const kbOnlyCount: Kb = { cards: [countCard], entities: [], relations: [] };
+    const svc1 = await KnowledgeService.create(kbOnlyCount, new Bm25RetrievalAdapter());
+    expect((await svc1.ask("회사 이름이 뭐야?")).abstained).toBe(true);
+    const svcMem1 = await KnowledgeService.create(kbOnlyCount, new MemoryRetrievalAdapter());
+    expect((await svcMem1.ask("회사 이름이 뭐야?")).abstained).toBe(true);
+
+    // 2. 직원 15명 카드 + 회사명 카드 (순서 1)
+    const kbOrder1: Kb = { cards: [countCard, nameCard], entities: [], relations: [] };
+    const svc2 = await KnowledgeService.create(kbOrder1, new Bm25RetrievalAdapter());
+    const r2 = await svc2.ask("회사 이름이 뭐야?");
+    expect(r2.abstained).toBe(false);
+    expect(r2.answer).toContain("넥스테인");
+    const svcMem2 = await KnowledgeService.create(kbOrder1, new MemoryRetrievalAdapter());
+    const rm2 = await svcMem2.ask("회사 이름이 뭐야?");
+    expect(rm2.abstained).toBe(false);
+    expect(rm2.answer).toContain("넥스테인");
+
+    // 3. 회사명 카드 + 직원 15명 카드 (순서 2)
+    const kbOrder2: Kb = { cards: [nameCard, countCard], entities: [], relations: [] };
+    const svc3 = await KnowledgeService.create(kbOrder2, new Bm25RetrievalAdapter());
+    const r3 = await svc3.ask("회사 이름이 뭐야?");
+    expect(r3.abstained).toBe(false);
+    expect(r3.answer).toContain("넥스테인");
+    const svcMem3 = await KnowledgeService.create(kbOrder2, new MemoryRetrievalAdapter());
+    const rm3 = await svcMem3.ask("회사 이름이 뭐야?");
+    expect(rm3.abstained).toBe(false);
+    expect(rm3.answer).toContain("넥스테인");
+  });
+
+  it("회사 파일명은 readme.md 카드만 있으면 ask('회사 이름이 뭐야?')는 기권한다", async () => {
+    const fileKb: Kb = {
+      cards: [
+        {
+          id: "c-file",
+          title: "회사 파일",
+          fields: { content: "회사 파일명은 readme.md" },
+          sourceUris: ["file:///ws/file.md"],
+          confidence: 1,
+          status: "accepted",
+        },
+      ],
+      entities: [],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(fileKb, new Bm25RetrievalAdapter());
+    expect((await svc.ask("회사 이름이 뭐야?")).abstained).toBe(true);
+
+    const svcMem = await KnowledgeService.create(fileKb, new MemoryRetrievalAdapter());
+    expect((await svcMem.ask("회사 이름이 뭐야?")).abstained).toBe(true);
+  });
+
+  it("여권 카드에서 얼마야/뭐였지/얼마예요는 53000을 담고, 누구지는 민원여권과를 담는다", async () => {
+    const passportKb: Kb = {
+      cards: [
+        {
+          id: "c-pass",
+          title: "여권 발급",
+          fields: { content: "수수료는 53000원.\n담당은 민원여권과." },
+          sourceUris: ["file:///ws/pass.md"],
+          confidence: 1,
+          status: "accepted",
+        },
+      ],
+      entities: [],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(passportKb, new Bm25RetrievalAdapter());
+
+    const r1 = await svc.ask("수수료는 얼마야?");
+    expect(r1.abstained).toBe(false);
+    expect(r1.answer).toContain("53000");
+
+    const r2 = await svc.ask("수수료가 뭐였지?");
+    expect(r2.abstained).toBe(false);
+    expect(r2.answer).toContain("53000");
+
+    const r3 = await svc.ask("수수료가 얼마예요?");
+    expect(r3.abstained).toBe(false);
+    expect(r3.answer).toContain("53000");
+
+    const r4 = await svc.ask("담당 누구지?");
+    expect(r4.abstained).toBe(false);
+    expect(r4.answer).toContain("민원여권과");
+  });
+
+  it("## 환불은 7일 이내 / 규정이 있어서 확인이 필요하다. 카드에서 search 스니펫과 ask answer에 둘 다 7일이 있다", async () => {
+    const refundCard: ServiceCard = {
+      id: "c-refund-7",
+      title: "환불 규정",
+      fields: { content: "## 환불은 7일 이내\n규정이 있어서 확인이 필요하다." },
+      sourceUris: ["file:///ws/refund7.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const refundKb: Kb = {
+      cards: [refundCard],
+      entities: [],
+      relations: [],
+    };
+    const svc = await KnowledgeService.create(refundKb, new Bm25RetrievalAdapter());
+
+    const hits = await svc.search("환불 있어?");
+    expect(hits[0].snippet).toContain("7일");
+
+    const asked = await svc.ask("환불 있어?");
+    expect(asked.abstained).toBe(false);
+    expect(asked.answer).toContain("7일");
+
+    // idempotent 확인: search와 ask의 스니펫이 동일
+    expect(bestSnippet(refundCard, "환불 있어?")).toBe("## 환불은 7일 이내");
+    expect(bestSnippet(refundCard, "환불 있어?")).toBe(bestSnippet(refundCard, contentQuery("환불 있어?")));
   });
 });
 

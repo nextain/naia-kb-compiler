@@ -27,6 +27,13 @@ describe("coverage 매칭(리뷰 반영)", () => {
     expect(coverage("이름", "유명 인사")).toBe(0);
     expect(coverage("이름", "설명")).toBe(0);
   });
+
+  it("이름 ↔ ○○명 규칙 축소: 다른 내용 토큰 접두가 같을 때만 매칭", () => {
+    expect(coverage("이름", "직원 15명")).toBe(0);
+    expect(coverage("이름", "스무명")).toBe(0);
+    expect(coverage("이름", "무기명")).toBe(0);
+    expect(coverage("회사 이름", "회사 파일명은 readme.md")).toBe(0.5);
+  });
 });
 
 describe("contentQuery (질문 허사 제거)", () => {
@@ -44,5 +51,23 @@ describe("contentQuery (질문 허사 제거)", () => {
     expect(q1).toContain("절차");
     const q2 = contentQuery("영업 인가는 어떻게 받아?");
     expect(q2).toContain("인가");
+  });
+
+  it("추가 질문 허사 제거", () => {
+    expect(contentQuery("수수료는 얼마야?")).toBe("수수료는");
+    expect(contentQuery("수수료가 뭐였지?")).toBe("수수료가");
+    expect(contentQuery("수수료가 얼마예요?")).toBe("수수료가");
+    expect(contentQuery("수수료가 얼마에요?")).toBe("수수료가");
+    expect(contentQuery("비용이 얼마나?")).toBe("비용이");
+    expect(contentQuery("담당 누구지?")).toBe("담당");
+    expect(contentQuery("배포 언제?")).toBe("배포");
+    expect(contentQuery("이유가 왜?")).toBe("이유가");
+  });
+
+  it("contentQuery idempotent 확인", () => {
+    const queries = ["회사 이름이 뭐야?", "환불 있어?", "수수료는 얼마야?", "담당 누구지?", "뭐야?"];
+    for (const q of queries) {
+      expect(contentQuery(contentQuery(q))).toBe(contentQuery(q));
+    }
   });
 });

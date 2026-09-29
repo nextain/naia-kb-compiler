@@ -32,17 +32,18 @@ export function serveReadyKb(kb: Kb): Kb {
 
 /** 카드 본문에서 질의와 가장 관련된 문장/줄을 뽑음(추출형 근거). */
 export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
+  const nq = contentQuery(q);
   const lines = String(card.fields.content ?? cardText(card))
     .split(/\r?\n|(?<=[.!?。])\s+/)
     .map((l) => l.trim())
     .filter((l) => l.length > 1);
   const nonHeadings = lines.filter((l) => !/^#{1,6}\s/.test(l));
-  const hasMatchingNonHeading = nonHeadings.some((l) => coverage(q, l) > 0);
+  const hasMatchingNonHeading = nonHeadings.some((l) => coverage(nq, l) > 0);
   const candidates = hasMatchingNonHeading ? nonHeadings : lines;
   let best = candidates[0] ?? card.title;
   let bs = -1;
   for (const l of candidates) {
-    const s = coverage(q, l);
+    const s = coverage(nq, l);
     if (s > bs) { bs = s; best = l; }
   }
   return best.slice(0, max);
