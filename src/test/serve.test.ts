@@ -598,5 +598,160 @@ describe("KnowledgeService", () => {
       expect(rDep.abstained).toBe(false);
     }
   });
+
+  it("회사 소개 추출 카드: ask('회사 어디?'), ask('회사 위치'), ask('회사 위치가 어디야?') 답에 넥스테인이 없고, ask('회사 이름이 뭐야?')는 넥스테인을 담는다", async () => {
+    const md = `넥스테인은 2020년에 설립되었다.
+
+## 회사명
+넥스테인
+
+## 위치
+서울 강남구
+`;
+    const sources = await new IngestAdapter().ingest([{ kind: "text", title: "회사 소개", text: md }]);
+    const extracted = await new MarkdownExtractAdapter().extract(sources);
+    const companyKb: Kb = {
+      cards: extracted.cards,
+      entities: extracted.entities,
+      relations: extracted.relations,
+    };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(companyKb, new Adapter());
+      const r1 = await svc.ask("회사 어디?");
+      expect(r1.answer).not.toContain("넥스테인");
+
+      const r2 = await svc.ask("회사 위치");
+      expect(r2.answer).not.toContain("넥스테인");
+
+      const r3 = await svc.ask("회사 위치가 어디야?");
+      expect(r3.answer).not.toContain("넥스테인");
+
+      const r4 = await svc.ask("회사 이름이 뭐야?");
+      expect(r4.abstained).toBe(false);
+      expect(r4.answer).toContain("넥스테인");
+    }
+  });
+
+  it("## 회사명 / 넥스테인 / ## 위치 / 서울 강남구: ask('회사 위치가 어디야?')와 ask('회사 어디?')에 넥스테인이 없다", async () => {
+    const card: ServiceCard = {
+      id: "c-company-split",
+      title: "회사 소개",
+      fields: {
+        content: "## 회사명\n넥스테인\n## 위치\n서울 강남구",
+      },
+      sourceUris: ["file:///ws/company-split.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r1 = await svc.ask("회사 위치가 어디야?");
+      expect(r1.answer).not.toContain("넥스테인");
+
+      const r2 = await svc.ask("회사 어디?");
+      expect(r2.answer).not.toContain("넥스테인");
+    }
+  });
+
+  it("## 제품명 / 나이아 / ## 가격 / 30000원: ask('제품 가격이 얼마야?')에 나이아가 없다", async () => {
+    const card: ServiceCard = {
+      id: "c-product-price",
+      title: "제품 정보",
+      fields: {
+        content: "## 제품명\n나이아\n## 가격\n30000원",
+      },
+      sourceUris: ["file:///ws/product-price.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r = await svc.ask("제품 가격이 얼마야?");
+      expect(r.answer).not.toContain("나이아");
+    }
+  });
+
+  it("## 환불 불가 / 자세한 사항은 고객센터에 문의하세요. + ask('환불 가능해?') → 불가가 있다", async () => {
+    const card: ServiceCard = {
+      id: "c-refund-no",
+      title: "환불 안내",
+      fields: {
+        content: "## 환불 불가\n자세한 사항은 고객센터에 문의하세요.",
+      },
+      sourceUris: ["file:///ws/refund-no.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r = await svc.ask("환불 가능해?");
+      expect(r.abstained).toBe(false);
+      expect(r.answer).toContain("불가");
+    }
+  });
+
+  it("## 배송비 무료 / 제주도는 추가됩니다. + ask('배송비 얼마야?') → 무료가 있다", async () => {
+    const card: ServiceCard = {
+      id: "c-shipping-free",
+      title: "배송비 안내",
+      fields: {
+        content: "## 배송비 무료\n제주도는 추가됩니다.",
+      },
+      sourceUris: ["file:///ws/shipping-free.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r = await svc.ask("배송비 얼마야?");
+      expect(r.abstained).toBe(false);
+      expect(r.answer).toContain("무료");
+    }
+  });
+
+  it("## 주차 무료 / 지하 2층 이용. + ask('주차 가능해?') → 무료가 있다", async () => {
+    const card: ServiceCard = {
+      id: "c-parking-free",
+      title: "주차 안내",
+      fields: {
+        content: "## 주차 무료\n지하 2층 이용.",
+      },
+      sourceUris: ["file:///ws/parking-free.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r = await svc.ask("주차 가능해?");
+      expect(r.abstained).toBe(false);
+      expect(r.answer).toContain("무료");
+    }
+  });
+
+  it("### 0755 이후 금요일 배포 금지 / 자세한 설명은 위 제목을 참고. + ask('0755 이후 금요일 배포 금지 알려줘') → 0755가 있다", async () => {
+    const card: ServiceCard = {
+      id: "c-deploy-0755-ref",
+      title: "배포 규칙",
+      fields: {
+        content: "### 0755 이후 금요일 배포 금지\n자세한 설명은 위 제목을 참고.",
+      },
+      sourceUris: ["file:///ws/deploy-0755-ref.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbTest: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbTest, new Adapter());
+      const r = await svc.ask("0755 이후 금요일 배포 금지 알려줘");
+      expect(r.abstained).toBe(false);
+      expect(r.answer).toContain("0755");
+    }
+  });
 });
+
 

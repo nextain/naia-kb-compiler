@@ -58,26 +58,32 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
   }
 
   if (/^#{1,6}\s/.test(best)) {
-    const isLabel = !/\p{N}/u.test(best) || isLabelHeading(best, q);
-    if (isLabel) {
-      let bestContentLine: string | null = null;
-      let maxSectionScore = -1;
-      for (let j = bestIdx + 1; j < lines.length; j++) {
-        const line = lines[j];
-        if (/^#{1,6}\s/.test(line)) {
-          break;
-        }
-        if (isContentLine(line)) {
-          const s = coverage(q, line);
-          if (s > maxSectionScore) {
-            maxSectionScore = s;
-            bestContentLine = line;
-          }
+    const hasDigits = /\p{N}/u.test(best);
+    const strictlyBest = lines.every((l, idx) => idx === bestIdx || bs > coverage(q, l));
+
+    let bestContentLine: string | null = null;
+    let maxSectionScore = -1;
+    for (let j = bestIdx + 1; j < lines.length; j++) {
+      const line = lines[j];
+      if (/^#{1,6}\s/.test(line)) {
+        break;
+      }
+      if (isContentLine(line)) {
+        const s = coverage(q, line);
+        if (s > maxSectionScore) {
+          maxSectionScore = s;
+          bestContentLine = line;
         }
       }
-      if (bestContentLine !== null) {
-        return bestContentLine.slice(0, max);
-      }
+    }
+
+    const condition3 =
+      isLabelHeading(best, contentQuery(q)) || (bestContentLine !== null && maxSectionScore > 0);
+
+    const canReplace = !hasDigits && strictlyBest && condition3;
+
+    if (canReplace && bestContentLine !== null) {
+      return bestContentLine.slice(0, max);
     }
     return best.slice(0, max);
   }

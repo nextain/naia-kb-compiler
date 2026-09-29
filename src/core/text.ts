@@ -84,7 +84,15 @@ export function isLabelHeading(headingLine: string, query: string): boolean {
   const needleStems = needleToks.map(stem);
   const otherStems = new Set(needleStems.filter((s) => s !== "이름"));
 
-  return headingContentToks.every((ht) => tokenMatch(ht, needleToks, otherStems));
+  return headingContentToks.every((ht) => {
+    const hts = stem(ht);
+    if (hts.endsWith("명") && hts.length >= 3) {
+      if (needleStems.includes(hts)) return true;
+      const prefix = hts.slice(0, -1);
+      return needleStems.includes("이름") && (otherStems.has(prefix) || otherStems.has(stem(prefix)));
+    }
+    return tokenMatch(ht, needleToks, otherStems);
+  });
 }
 
 /** haystack 안에 needle 토큰이 몇 개 들어있나. coverage와 동일한 tokenMatch 규칙. */
