@@ -409,7 +409,7 @@ describe("KnowledgeService", () => {
     }
   });
 
-  it("## 나이아 제품 전시 소개 / 본 회사의 첫 데모.: search('default 회사 제품 전시 소개') 스니펫 → 제목 줄", async () => {
+  it("## 나이아 제품 전시 소개 / 본 회사의 첫 데모.: search('default 회사 제품 전시 소개') 스니펫 → 본 회사의 첫 데모.", async () => {
     const card: ServiceCard = {
       id: "c-naia-demo",
       title: "제품 전시 소개",
@@ -424,7 +424,120 @@ describe("KnowledgeService", () => {
     for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
       const svc = await KnowledgeService.create(naiaKb, new Adapter());
       const hits = await svc.search("default 회사 제품 전시 소개");
-      expect(hits[0].snippet).toBe("## 나이아 제품 전시 소개");
+      expect(hits[0].snippet).toBe("본 회사의 첫 데모.");
+    }
+  });
+
+  it("기기 실측 카드: ## 배포 금지 규칙 / 배포는 0936 이후 금요일에 하지 않는다.: search 스니펫과 ask에 0936이 있다", async () => {
+    const card: ServiceCard = {
+      id: "c-deploy-0936",
+      title: "배포 금지 규칙",
+      fields: {
+        content: "## 배포 금지 규칙\n배포는 0936 이후 금요일에 하지 않는다.",
+      },
+      sourceUris: ["file:///ws/deploy-0936.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kb0936: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kb0936, new Adapter());
+      const hits = await svc.search("배포 규칙 deployment rules");
+      expect(hits[0].snippet).toContain("0936");
+
+      const asked = await svc.ask("배포 규칙이 뭐였지?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("0936");
+    }
+  });
+
+  it("grok 8: ## 환불 안내 / 환불은 구매 후 7일 이내이며, 포장이 있어서 가능합니다. + ask('환불 있어?') → 7일", async () => {
+    const card: ServiceCard = {
+      id: "c-refund-guide",
+      title: "환불 안내",
+      fields: { content: "## 환불 안내\n환불은 구매 후 7일 이내이며, 포장이 있어서 가능합니다." },
+      sourceUris: ["file:///ws/refund-guide.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbGrok1: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbGrok1, new Adapter());
+      const asked = await svc.ask("환불 있어?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("7일");
+    }
+  });
+
+  it("grok 8: ## 환불 / 문의는 고객센터로. / 환불은 7일 이내이며 규정이 있어서 확인이 필요합니다. + ask('환불 있어?') → 7일", async () => {
+    const card: ServiceCard = {
+      id: "c-refund-multi",
+      title: "환불",
+      fields: { content: "## 환불\n문의는 고객센터로.\n환불은 7일 이내이며 규정이 있어서 확인이 필요합니다." },
+      sourceUris: ["file:///ws/refund-multi.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbGrok2: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbGrok2, new Adapter());
+      const asked = await svc.ask("환불 있어?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("7일");
+    }
+  });
+
+  it("grok 8: ## 회사 위치 / 회사 사무실은 서울 강남구 어디에 있다. + ask('회사 어디?') → 강남구", async () => {
+    const card: ServiceCard = {
+      id: "c-company-loc",
+      title: "회사 위치",
+      fields: { content: "## 회사 위치\n회사 사무실은 서울 강남구 어디에 있다." },
+      sourceUris: ["file:///ws/company-loc.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbGrok3: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbGrok3, new Adapter());
+      const asked = await svc.ask("회사 어디?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("강남구");
+    }
+  });
+
+  it("grok 8: 담당 안내 / 담당은 민원여권과이며 누구든지 신청할 수 있다. + ask('담당 누구?') → 민원여권과", async () => {
+    const card: ServiceCard = {
+      id: "c-officer",
+      title: "담당 안내",
+      fields: { content: "담당 안내\n담당은 민원여권과이며 누구든지 신청할 수 있다." },
+      sourceUris: ["file:///ws/officer.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbGrok4: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbGrok4, new Adapter());
+      const asked = await svc.ask("담당 누구?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("민원여권과");
+    }
+  });
+
+  it("grok 8: 수수료 안내입니다. / 수수료는 53000원으로 얼마 되지 않습니다. + ask('수수료 얼마?') → 53000", async () => {
+    const card: ServiceCard = {
+      id: "c-fee",
+      title: "수수료 안내",
+      fields: { content: "수수료 안내입니다.\n수수료는 53000원으로 얼마 되지 않습니다." },
+      sourceUris: ["file:///ws/fee.md"],
+      confidence: 1,
+      status: "accepted",
+    };
+    const kbGrok5: Kb = { cards: [card], entities: [], relations: [] };
+    for (const Adapter of [Bm25RetrievalAdapter, MemoryRetrievalAdapter]) {
+      const svc = await KnowledgeService.create(kbGrok5, new Adapter());
+      const asked = await svc.ask("수수료 얼마?");
+      expect(asked.abstained).toBe(false);
+      expect(asked.answer).toContain("53000");
     }
   });
 

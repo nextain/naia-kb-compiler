@@ -39,7 +39,6 @@ function isContentLine(l: string): boolean {
 
 /** 카드 본문에서 질의와 가장 관련된 문장/줄을 뽑음(추출형 근거). */
 export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
-  const nq = contentQuery(q);
   const lines = String(card.fields.content ?? cardText(card))
     .split(/\r?\n|(?<=[.!?。])\s+/)
     .map((l) => l.trim())
@@ -50,7 +49,7 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
   let bs = -1;
   for (let i = 0; i < lines.length; i++) {
     const l = lines[i];
-    const s = coverage(nq, l);
+    const s = coverage(q, l);
     if (s > bs) {
       bs = s;
       best = l;
@@ -59,15 +58,25 @@ export function bestSnippet(card: ServiceCard, q: string, max = 300): string {
   }
 
   if (/^#{1,6}\s/.test(best)) {
-    if (isLabelHeading(best, nq)) {
+    const isLabel = !/\p{N}/u.test(best) || isLabelHeading(best, q);
+    if (isLabel) {
+      let bestContentLine: string | null = null;
+      let maxSectionScore = -1;
       for (let j = bestIdx + 1; j < lines.length; j++) {
         const line = lines[j];
         if (/^#{1,6}\s/.test(line)) {
           break;
         }
         if (isContentLine(line)) {
-          return line.slice(0, max);
+          const s = coverage(q, line);
+          if (s > maxSectionScore) {
+            maxSectionScore = s;
+            bestContentLine = line;
+          }
         }
+      }
+      if (bestContentLine !== null) {
+        return bestContentLine.slice(0, max);
       }
     }
     return best.slice(0, max);
