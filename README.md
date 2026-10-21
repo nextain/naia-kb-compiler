@@ -1,26 +1,28 @@
+**English** | [한국어](README.ko.md)
+
 # naia-kb-compiler
 
-**지식 컴파일러 엔진** (넥스테인 자산, Apache 2.0).
+**Knowledge compiler engine** (a Nextain asset, Apache 2.0).
 
-비전문가가 **자료(URL·문서)를 투입**하면 → 자동으로 **구조화 지식베이스(서비스카드·FAQ + 엔티티/관계)** 를 만들고 → **운영자가 답한 소수 질의를 합격 기준(정답 앵커)** 삼아 자가검증하고 → 못 채운 **갭만 사람에게** 확인받아 → **인용·거버넌스·기권**이 붙은 **서빙용 KB**로 컴파일한다.
+A non-expert **feeds in material (URLs, documents)** → it automatically builds a **structured knowledge base (service cards, FAQ + entities/relations)** → self-verifies using **a small set of questions answered by the operator as the acceptance criteria (answer anchors)** → asks a person to confirm **only the gaps** it could not fill → and compiles a **serving KB** with **citations, governance, and abstention** attached.
 
-NotebookLM이 "읽기 전용 Q&A"에 그치는 것과 달리, **운영 가능한 지식을 *생산*** 한다.
+Where NotebookLM stops at "read-only Q&A", this ***produces* operable knowledge**.
 
-## 핵심
+## Key points
 
-- **전문성을 엔진에 내장** — 운영자는 자료 넣고, 질문 몇 개 답하고, 빨간 깃발만 확인.
-- **정답 앵커 자가검증** — 자동 추출(≈70~80% 부정확)을 사람 소수 정답으로 게이트.
-- **그래프 데이터는 항상, 검색 백엔드는 어댑터** — 벡터 RAG ↔ 그래프(LightRAG/Spanner)를 포트 뒤 교체.
-- **전 구간 port/adapter + 데이터 가반성** — LLM·임베딩·검색·저장 어느 것에도 안 묶임.
+- **Expertise built into the engine** — the operator adds material, answers a few questions, and checks only the red flags.
+- **Answer-anchor self-verification** — automatic extraction (≈70–80% inaccurate) is gated by a small number of human answers.
+- **Graph data always; the search backend is an adapter** — vector RAG ↔ graph (LightRAG/Spanner) can be swapped behind a port.
+- **Port/adapter everywhere + data portability** — not tied to any LLM, embedding, search, or storage.
 
-## 소유권 / 비종속
+## Ownership / no lock-in
 
-넥스테인 소유. 누구도 이 엔진/백엔드에 **종속되지 않도록 설계로 보장**(언제든 교체 가능). 기업·파트너 권리는 별도 계약. → [`OWNERSHIP.md`](OWNERSHIP.md)
+Owned by Nextain. **Guaranteed by design that no one is locked into** this engine/backend (replaceable at any time). Rights of companies and partners are covered by separate contracts. → [`OWNERSHIP.md`](OWNERSHIP.md)
 
-## 진입점
+## Entry points
 
-AI 도구: [`AGENTS.md`](AGENTS.md) (= `CLAUDE.md` = `GEMINI.md`). 사람: 이 README + [`.users/ko/`](.users/ko/).
+AI tools: [`AGENTS.md`](AGENTS.md) (= `CLAUDE.md` = `GEMINI.md`). People: this README + [`.users/ko/`](.users/ko/) (Korean).
 
-## 상태
+## Status
 
-스캐폴드 단계. 설계(V모델) → MVP 슬라이스 순. 첫 소비자가 있으나 비종속.
+Scaffold stage. Design (V-model) → MVP slices, in that order. There is a first consumer, but no lock-in.
