@@ -26,3 +26,7 @@ AI 도구: [`AGENTS.md`](AGENTS.md) (= `CLAUDE.md` = `GEMINI.md`). 사람: 이 R
 ## 상태
 
 스캐폴드 단계. 설계(V모델) → MVP 슬라이스 순. 첫 소비자가 있으나 비종속.
+
+## 라이선스 및 특허 고지 (License & Patent Notice)
+
+코드는 [Apache License 2.0 (`Apache-2.0`)](LICENSE)으로 배포되며, 특허 경계 및 조건부 특허 서약([`PATENTS.md`](PATENTS.md)), 상용·엔터프라이즈 라이선스([`LICENSE-COMMERCIAL.md`](LICENSE-COMMERCIAL.md)), 기여자 약정([`CONTRIBUTING.md`](CONTRIBUTING.md), [`CLA.md`](CLA.md), [`CLA-CORPORATE.md`](CLA-CORPORATE.md)) 전문은 영문 [`README.md`의 License & Patent Notice](README.md#license--patent-notice) 절을 참고하세요.
